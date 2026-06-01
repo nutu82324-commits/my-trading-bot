@@ -6,21 +6,24 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 API_TOKEN = '8637835333:AAE5Y70U3VzEPdAmPCM3kmAxbKI8DDfbFx4'
-ADMIN_ID = 6765689893  # ЗАМЕНИТЕ НА ВАШ ID
+ADMIN_ID = 6765689893
 REF_LINK = "https://pocket-friends.co/r/vmbewy0x1o"
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# Список ID тех, кому разрешен доступ
+# Список авторизованных пользователей
 authorized_users = set()
 
 all_assets = [
     "EUR/USD OTC", "GBP/USD OTC", "USD/JPY OTC", "AUD/USD OTC", 
     "USD/CAD OTC", "NZD/USD OTC", "EUR/JPY OTC", "GBP/JPY OTC", 
+    "EUR/GBP OTC", "AUD/JPY OTC", "CHF/JPY OTC", "USD/CHF OTC",
     "Bitcoin OTC", "Ethereum OTC", "Litecoin OTC", "Ripple OTC", 
-    "Apple OTC", "Tesla OTC", "NVIDIA OTC", "Amazon OTC", 
-    "Gold OTC", "Silver OTC", "Brent Crude Oil OTC", "Natural Gas OTC"
+    "Solana OTC", "Cardano OTC", "Dogecoin OTC", "Binance Coin OTC",
+    "Apple OTC", "Tesla OTC", "NVIDIA OTC", "Amazon OTC", "Google OTC",
+    "Meta OTC", "Netflix OTC", "Microsoft OTC", "Gold OTC", "Silver OTC", 
+    "Brent Crude Oil OTC", "Natural Gas OTC", "Platinum OTC"
 ]
 
 def get_signal_message():
@@ -30,20 +33,12 @@ def get_signal_message():
     tf = f"M{minutes}"
     conf = random.randint(75, 99) 
     end_time = datetime.datetime.now() + datetime.timedelta(minutes=minutes)
-    time_str = end_time.strftime("%H:%M:%S")
     
-    advice = """✅ КАК ВХОДИТЬ:
-1. ⏳ ВХОД: В первые 5-10 сек после сигнала.
-2. Мани-менеджмент: 2-3% от баланса."""
+    advice = "✅ ВХОД: В первые 5-10 сек после сигнала.\nМани-менеджмент: 2-3% от баланса."
     
-    return (f"📡 СИГНАЛ\n\n"
-            f"🔹 Активы: {asset}\n"
-            f"⚡️ Направление: {direction}\n"
-            f"📊 ТФ: {tf}\n"
-            f"⏱ Время: {minutes} мин\n"
-            f"⏳ Закрыть в: {time_str}\n"
-            f"🔥 Уверенность: {conf}%\n\n"
-            f"{advice}")
+    return (f"📡 СИГНАЛ\n\n🔹 Активы: {asset}\n⚡️ Направление: {direction}\n"
+            f"📊 ТФ: {tf}\n⏱ Время: {minutes} мин\n⏳ Закрыть в: {end_time.strftime('%H:%M:%S')}\n"
+            f"🔥 Уверенность: {conf}%\n\n{advice}")
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
@@ -51,27 +46,26 @@ async def start(message: types.Message):
         [InlineKeyboardButton(text="💎 Регистрация", url=REF_LINK)],
         [InlineKeyboardButton(text="✅ Я пополнил", callback_data="paid")]
     ])
-    await message.answer("Привет! Зарегистрируйся и нажми кнопку, чтобы отправить заявку на доступ:", reply_markup=kb)
+    await message.answer("Привет! Зарегистрируйся и нажми кнопку после пополнения:", reply_markup=kb)
 
 @dp.callback_query(F.data == "paid")
 async def paid_button(call: types.CallbackQuery):
-    # Кнопки админу для управления доступом
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Принять", callback_data=f"approve_{call.from_user.id}")],
         [InlineKeyboardButton(text="❌ Отказать", callback_data=f"reject_{call.from_user.id}")]
     ])
-    await bot.send_message(ADMIN_ID, f"⚠️ Новая заявка!\nПользователь: {call.from_user.full_name} (ID: {call.from_user.id})", reply_markup=kb)
-    await call.message.answer("✅ Заявка отправлена администратору. Ожидайте подтверждения.")
+    await bot.send_message(ADMIN_ID, f"⚠️ Новая заявка на доступ!\nПользователь: {call.from_user.full_name} (ID: {call.from_user.id})", reply_markup=kb)
+    await call.message.answer("✅ Заявка отправлена администратору. Ожидайте.")
 
 @dp.callback_query(F.data.startswith("approve_"))
-async def approve_payment(call: types.CallbackQuery):
+async def approve(call: types.CallbackQuery):
     user_id = int(call.data.split("_")[1])
     authorized_users.add(user_id)
-    await bot.send_message(user_id, "✅ Ваш баланс подтвержден! Доступ к сигналам открыт. Используйте /get")
+    await bot.send_message(user_id, "✅ Баланс подтвержден! Доступ к сигналам открыт. Используй /get")
     await call.message.edit_text(f"✅ Пользователь {user_id} принят.")
 
 @dp.callback_query(F.data.startswith("reject_"))
-async def reject_payment(call: types.CallbackQuery):
+async def reject(call: types.CallbackQuery):
     user_id = int(call.data.split("_")[1])
     await bot.send_message(user_id, "❌ Пополнение не подтверждено. Свяжитесь с поддержкой.")
     await call.message.edit_text(f"❌ Пользователь {user_id} отклонен.")
@@ -81,7 +75,7 @@ async def get_signal(message: types.Message):
     if message.from_user.id in authorized_users:
         await message.answer(get_signal_message())
     else:
-        await message.answer("❌ Доступ закрыт. Сначала пройдите регистрацию и нажмите 'Я пополнил' в /start")
+        await message.answer("❌ Доступ закрыт. Сначала пополни баланс и нажми кнопку в /start")
 
 async def main():
     await dp.start_polling(bot)
