@@ -7,7 +7,8 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiohttp import web
 
-API_TOKEN = '8637835333:AAE5Y70U3VzEPdAmPCM3kmAxbKI8DDfbFx4'
+# Ваш новый токен
+API_TOKEN = '8637835333:AAHNLCUBaKH6OFadHAGBKKyT6MBge5_LCgE'
 ADMIN_ID = 6765689893
 REF_LINK = "https://pocket-friends.co/r/vmbewy0x1o"
 PHOTO_URL = "https://i.ibb.co/hR4wYv9/IMG-20260601-135650.jpg"
