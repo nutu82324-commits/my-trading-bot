@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiohttp import web
 
-# Обновленный рабочий токен
+# Токен исправлен
 API_TOKEN = '8601317051:AAEnUfV1GBDSN0Zkr87QtpTDcLXs2M3YK_E'
 ADMIN_ID = 6765689893
 REF_LINK = "https://pocket-friends.co/r/vmbewy0x1o"
@@ -39,10 +39,6 @@ async def start(message: types.Message):
     welcome_text = (
         "⚡️ **AI SCANNER TRADE** — твой личный ИИ-ассистент для торговли на Pocket Option!\n\n"
         "Робот сканирует рынок валютных пар 24/7, находит сильные ценовые пробои и развороты тренда по паттернам Price Action.\n\n"
-        "🔴🟢 **Что ты получишь:**\n"
-        "• Моментальные сигналы высокой точности.\n"
-        "• Анализ тренда и паттернов на таймфреймах 1м, 5м и 15м.\n"
-        "• Кнопки быстрого перехода на платформу для заключения сделок.\n\n"
         "Нажимай кнопку ниже, регистрируйся и забирай свой первый сигнал! 🚀"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -93,7 +89,7 @@ async def give_access(call: types.CallbackQuery):
 @dp.callback_query(F.data == "get_sig")
 async def send_sig(call: types.CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔥 ЕЩЕ СИГНАЛ", callback_data="get_sig")]])
-    await call.message.answer(get_signal(), reply_markup=kb, reply_markup=kb, parse_mode="Markdown")
+    await call.message.answer(get_signal(), reply_markup=kb, parse_mode="Markdown")
 
 async def web_server(request): return web.Response(text="Bot is running!")
 
