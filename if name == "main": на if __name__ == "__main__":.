@@ -41,14 +41,17 @@ async def start(message: types.Message):
     ])
     await message.answer("Привет! Зарегистрируйся и нажми кнопку после пополнения:", reply_markup=kb)
 
+# ЭТА ФУНКЦИЯ ТЕПЕРЬ ОТПРАВЛЯЕТ ВАМ КНОПКИ
 @dp.callback_query(F.data == "paid")
 async def paid_button(call: types.CallbackQuery):
+    # Создаем кнопки для АДМИНА
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ ОДОБРИТЬ", callback_data=f"approve_{call.from_user.id}")],
+        [InlineKeyboardButton(text="✅ ПРИНЯТЬ", callback_data=f"approve_{call.from_user.id}")],
         [InlineKeyboardButton(text="❌ ОТКАЗАТЬ", callback_data=f"reject_{call.from_user.id}")]
     ])
-    await bot.send_message(ADMIN_ID, f"⚠️ ЗАЯВКА НА ПОПОЛНЕНИЕ!\nПользователь: {call.from_user.full_name}\nID: {call.from_user.id}", reply_markup=kb)
-    await call.answer("Заявка отправлена администратору!")
+    # Отправляем сообщение ВАМ с этими кнопками
+    await bot.send_message(ADMIN_ID, f"⚠️ ПОЛЬЗОВАТЕЛЬ {call.from_user.full_name} ({call.from_user.id}) ЖДЕТ ПОДТВЕРЖДЕНИЯ!", reply_markup=kb)
+    await call.answer("Заявка на проверку отправлена админу.")
 
 @dp.callback_query(F.data.startswith("approve_"))
 async def approve(call: types.CallbackQuery):
@@ -68,7 +71,7 @@ async def get_signal(message: types.Message):
     if message.from_user.id in authorized_users:
         await message.answer(get_signal_message())
     else:
-        await message.answer("❌ Доступ закрыт. Сначала пополни баланс и жди одобрения админа.")
+        await message.answer("❌ Доступ закрыт. Сначала пополни баланс и нажми 'Я пополнил' в /start")
 
 if __name__ == "__main__":
     asyncio.run(main())
