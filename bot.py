@@ -1,13 +1,11 @@
 import asyncio
 import random
 import os
-from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiohttp import web
 
-# Ваш новый токен
 API_TOKEN = '8637835333:AAHNLCUBaKH6OFadHAGBKKyT6MBge5_LCgE'
 ADMIN_ID = 6765689893
 REF_LINK = "https://pocket-friends.co/r/vmbewy0x1o"
@@ -27,66 +25,67 @@ assets = [
     "Gold", "Silver", "Brent Oil", "Gold OTC"
 ]
 
-def get_signal_message():
+def get_signal():
     asset = random.choice(assets)
     return (f"📡 **СИГНАЛ**\n\n"
             f"🔹 **Активы:** {asset}\n"
             f"⚡️ **Направление:** {random.choice(['📈 🟢 BUY', '📉 🔴 SELL'])}\n"
             f"📊 **ТФ:** M3\n"
             f"⏱ **Время:** 3 мин\n"
-            f"⏳ **До:** {(datetime.now() + timedelta(minutes=3)).strftime('%H:%M:%S')}\n"
             f"🎯 **Выплата:** {random.randint(88, 95)}%\n"
-            f"🔥 **Уверенность:** {random.randint(80, 99)}%\n\n"
-            f"💡 **Вход:** Сразу при получении.\n"
-            f"💰 **Риск:** 2-3% от депозита.")
+            f"🔥 **Уверенность:** {random.randint(80, 99)}%")
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="💎 Регистрация", url=REF_LINK)],
-        [InlineKeyboardButton(text="✅ Зарегистрировался", callback_data="registered")]
+        [InlineKeyboardButton(text="✅ Зарегистрировался", callback_data="reg")]
     ])
-    await bot.send_photo(message.chat.id, PHOTO_URL, caption="🤖 **Привет! Я — твой AI-помощник.**\nПройди регистрацию:", reply_markup=kb, parse_mode="Markdown")
+    await bot.send_photo(message.chat.id, PHOTO_URL, caption="🤖 **Привет! Я — твой AI-помощник.**\nПройди регистрацию:", reply_markup=kb)
 
-@dp.callback_query(F.data == "registered")
+@dp.callback_query(F.data == "reg")
 async def reg(call: types.CallbackQuery):
     await call.message.answer("Пришли свой ID с платформы (цифрами).")
-    user_db[call.from_user.id] = 'pending_id'
+    user_db[call.from_user.id] = 'wait_id'
 
-@dp.message(F.text.isdigit())
-async def get_id(msg: types.Message):
-    if user_db.get(msg.from_user.id) == 'pending_id':
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ ПРИНЯТЬ", callback_data=f"app_id_{msg.from_user.id}")]])
-        await bot.send_message(ADMIN_ID, f"ID {msg.from_user.id}: {msg.text}", reply_markup=kb)
-        await msg.answer("ID отправлен админу.")
+@dp.message(F.text.regexp(r'^\d+$'))
+async def handle_id(message: types.Message):
+    if user_db.get(message.from_user.id) == 'wait_id':
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="✅ ПРИНЯТЬ ID", callback_data=f"app_id_{message.from_user.id}")],
+            [InlineKeyboardButton(text="❌ ОТМЕНИТЬ", callback_data=f"rej_id_{message.from_user.id}")]
+        ])
+        await bot.send_message(ADMIN_ID, f"Юзер {message.from_user.id} прислал ID: {message.text}", reply_markup=kb)
+        await message.answer("ID отправлен админу на проверку.")
+        user_db[message.from_user.id] = 'checking'
 
 @dp.callback_query(F.data.startswith("app_id_"))
-async def app_id(call: types.CallbackQuery):
-    uid = int(call.data.split("_")[2])
-    user_db[uid] = 'registered'
+async def accept_id(call: types.CallbackQuery):
+    uid = call.data.split("_")[2]
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💳 Я ПОПОЛНИЛ ($20+)", callback_data="paid")]])
-    await bot.send_message(uid, "ID принят! Пополни счет ($20+) и нажми:", reply_markup=kb)
-    await call.message.edit_text("ID одобрен.")
+    await bot.send_message(int(uid), "ID принят! Теперь пополни счет на $20+ и нажми кнопку.", reply_markup=kb)
+    await call.message.edit_text("ID принят, ждем пополнения.")
 
 @dp.callback_query(F.data == "paid")
-async def paid(call: types.CallbackQuery):
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="✅ ДОПУСТИТЬ", callback_data=f"app_pay_{call.from_user.id}")]])
-    await bot.send_message(ADMIN_ID, f"Юзер {call.from_user.id} пополнил. Проверь!", reply_markup=kb)
-    await call.message.answer("Запрос на проверку отправлен.")
+async def check_pay(call: types.CallbackQuery):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ ДОПУСТИТЬ", callback_data=f"access_{call.from_user.id}")],
+        [InlineKeyboardButton(text="❌ ОТКАЗ", callback_data="reject_pay")]
+    ])
+    await bot.send_message(ADMIN_ID, f"Юзер {call.from_user.id} нажал 'Пополнил'. Проверь!", reply_markup=kb)
+    await call.message.answer("Запрос на проверку пополнения отправлен.")
 
-@dp.callback_query(F.data.startswith("app_pay_"))
-async def app_pay(call: types.CallbackQuery):
-    uid = int(call.data.split("_")[2])
-    user_db[uid] = 'paid'
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔥 ПОЛУЧИТЬ СИГНАЛ", callback_data="get_signal")]])
-    await bot.send_message(uid, "✅ Доступ открыт!", reply_markup=kb)
-    await call.message.edit_text("Пополнение одобрено.")
+@dp.callback_query(F.data.startswith("access_"))
+async def give_access(call: types.CallbackQuery):
+    uid = call.data.split("_")[1]
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔥 ПОЛУЧИТЬ СИГНАЛ", callback_data="get_sig")]])
+    await bot.send_message(int(uid), "✅ Пополнение подтверждено! Доступ открыт.", reply_markup=kb)
+    await call.message.edit_text("Доступ дан.")
 
-@dp.callback_query(F.data == "get_signal")
-async def get_sig(call: types.CallbackQuery):
-    if user_db.get(call.from_user.id) == 'paid':
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔥 ЕЩЕ СИГНАЛ", callback_data="get_signal")]])
-        await call.message.answer(get_signal_message(), reply_markup=kb, parse_mode="Markdown")
+@dp.callback_query(F.data == "get_sig")
+async def send_sig(call: types.CallbackQuery):
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔥 ЕЩЕ СИГНАЛ", callback_data="get_sig")]])
+    await call.message.answer(get_signal(), reply_markup=kb)
 
 async def web_server(request): return web.Response(text="Bot is running!")
 
