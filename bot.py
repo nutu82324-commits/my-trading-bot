@@ -1,21 +1,21 @@
 import asyncio
 import random
+import os
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiohttp import web
 
 API_TOKEN = '8637835333:AAE5Y70U3VzEPdAmPCM3kmAxbKI8DDfbFx4'
 ADMIN_ID = 6765689893
 REF_LINK = "https://pocket-friends.co/r/vmbewy0x1o"
-# Ссылка на ваше фото (загрузите его на imgbb.com, чтобы получить прямую ссылку)
 PHOTO_URL = "https://i.ibb.co/hR4wYv9/IMG-20260601-135650.jpg"
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 user_db = {} 
 
-# ВСЕ АКТИВЫ
 assets = [
     "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "EUR/JPY", "GBP/JPY",
     "EUR/USD OTC", "GBP/USD OTC", "USD/JPY OTC", "AUD/USD OTC", "USD/CAD OTC", "EUR/JPY OTC", "GBP/JPY OTC",
@@ -87,4 +87,16 @@ async def get_sig(call: types.CallbackQuery):
         kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔥 ЕЩЕ СИГНАЛ", callback_data="get_signal")]])
         await call.message.answer(get_signal_message(), reply_markup=kb, parse_mode="Markdown")
 
-if __name__ == "__main__": asyncio.run(dp.start_polling(bot))
+async def web_server(request): return web.Response(text="Bot is running!")
+
+async def main():
+    app = web.Application()
+    app.router.add_get('/', web_server)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', int(os.environ.get("PORT", 10000)))
+    await site.start()
+    await dp.start_polling(bot)
+
+if __name__ == "__main__": asyncio.run(main())
+т
