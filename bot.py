@@ -6,8 +6,8 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiohttp import web
 
-# Ваш новый токен
-API_TOKEN = '8601317051:AAG4ErLDPnI-fTZ26afZT64IAunJAHcBFiU'
+# Обновленный рабочий токен
+API_TOKEN = '8601317051:AAEnUfV1GBDSN0Zkr87QtpTDcLXs2M3YK_E'
 ADMIN_ID = 6765689893
 REF_LINK = "https://pocket-friends.co/r/vmbewy0x1o"
 PHOTO_URL = "https://i.ibb.co/hR4wYv9/IMG-20260601-135650.jpg"
@@ -93,7 +93,7 @@ async def give_access(call: types.CallbackQuery):
 @dp.callback_query(F.data == "get_sig")
 async def send_sig(call: types.CallbackQuery):
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔥 ЕЩЕ СИГНАЛ", callback_data="get_sig")]])
-    await call.message.answer(get_signal(), reply_markup=kb, parse_mode="Markdown")
+    await call.message.answer(get_signal(), reply_markup=kb, reply_markup=kb, parse_mode="Markdown")
 
 async def web_server(request): return web.Response(text="Bot is running!")
 
