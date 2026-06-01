@@ -41,30 +41,27 @@ async def start(message: types.Message):
     ])
     await message.answer("Привет! Зарегистрируйся и нажми кнопку после пополнения:", reply_markup=kb)
 
-# 1. Пользователь нажал "Я пополнил"
 @dp.callback_query(F.data == "paid")
 async def paid_button(call: types.CallbackQuery):
-    # Теперь ТУТ создаем кнопки для АДМИНА
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ ОДОБРИТЬ пополнение", callback_data=f"approve_{call.from_user.id}")],
+        [InlineKeyboardButton(text="✅ ОДОБРИТЬ", callback_data=f"approve_{call.from_user.id}")],
         [InlineKeyboardButton(text="❌ ОТКАЗАТЬ", callback_data=f"reject_{call.from_user.id}")]
     ])
     await bot.send_message(ADMIN_ID, f"⚠️ ЗАЯВКА НА ПОПОЛНЕНИЕ!\nПользователь: {call.from_user.full_name}\nID: {call.from_user.id}", reply_markup=kb)
     await call.answer("Заявка отправлена администратору!")
 
-# 2. Обработка кнопок АДМИНОМ
 @dp.callback_query(F.data.startswith("approve_"))
 async def approve(call: types.CallbackQuery):
     user_id = int(call.data.split("_")[1])
     authorized_users.add(user_id)
     await bot.send_message(user_id, "✅ Ваш баланс подтвержден! Доступ к сигналам открыт. Пиши /get")
-    await call.message.edit_text(f"✅ Пользователь {user_id} ОДОБРЕН.")
+    await call.message.edit_text(call.message.text + "\n\n✅ ОДОБРЕНО")
 
 @dp.callback_query(F.data.startswith("reject_"))
 async def reject(call: types.CallbackQuery):
     user_id = int(call.data.split("_")[1])
     await bot.send_message(user_id, "❌ Пополнение не подтверждено.")
-    await call.message.edit_text(f"❌ Пользователь {user_id} ОТКЛОНЕН.")
+    await call.message.edit_text(call.message.text + "\n\n❌ ОТКЛОНЕНО")
 
 @dp.message(Command("get"))
 async def get_signal(message: types.Message):
@@ -74,4 +71,4 @@ async def get_signal(message: types.Message):
         await message.answer("❌ Доступ закрыт. Сначала пополни баланс и жди одобрения админа.")
 
 if __name__ == "__main__":
-    asyncio.run(dp.start_polling(bot))
+    asyncio.run(main())
