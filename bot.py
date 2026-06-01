@@ -13,13 +13,16 @@ bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 authorized_users = set()
 
-# Полный список активов
+# Полный список активов (валюты, акции, крипта, OTC)
 all_assets = [
-    "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "EUR/JPY", "GBP/JPY", 
-    "EUR/USD OTC", "GBP/USD OTC", "USD/JPY OTC", "AUD/USD OTC", 
-    "USD/CAD OTC", "NZD/USD OTC", "EUR/JPY OTC", "GBP/JPY OTC", 
-    "Bitcoin", "Ethereum", "Bitcoin OTC", "Ethereum OTC", "Gold", "Silver",
-    "Gold OTC", "Brent Crude Oil", "Tesla", "NVIDIA", "Apple"
+    "EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "EUR/JPY", "GBP/JPY", "USD/CAD", "NZD/USD", "USD/CHF",
+    "EUR/USD OTC", "GBP/USD OTC", "USD/JPY OTC", "AUD/USD OTC", "EUR/JPY OTC", "GBP/JPY OTC", "USD/CAD OTC", "NZD/USD OTC", "USD/CHF OTC",
+    "Bitcoin", "Ethereum", "Litecoin", "Ripple", "Solana", "Cardano", "Dogecoin", "Binance Coin",
+    "Bitcoin OTC", "Ethereum OTC", "Litecoin OTC", "Ripple OTC", "Solana OTC", "Cardano OTC", "Dogecoin OTC", "Binance Coin OTC",
+    "Apple", "Tesla", "NVIDIA", "Amazon", "Google", "Meta", "Netflix", "Microsoft",
+    "Apple OTC", "Tesla OTC", "NVIDIA OTC", "Amazon OTC", "Google OTC", "Meta OTC", "Netflix OTC", "Microsoft OTC",
+    "Gold", "Silver", "Brent Crude Oil", "Natural Gas", "Platinum",
+    "Gold OTC", "Silver OTC", "Brent Crude Oil OTC", "Natural Gas OTC", "Platinum OTC"
 ]
 
 def get_signal_message():
@@ -41,7 +44,6 @@ async def start(message: types.Message):
 
 @dp.callback_query(F.data == "paid")
 async def paid_button(call: types.CallbackQuery):
-    # Убираем все лишние надписи, только ID
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ ПРИНЯТЬ", callback_data=f"approve_{call.from_user.id}")],
         [InlineKeyboardButton(text="❌ ОТКАЗАТЬ", callback_data=f"reject_{call.from_user.id}")]
