@@ -11,8 +11,6 @@ REF_LINK = "https://pocket-friends.co/r/vmbewy0x1o"
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
-
-# Список авторизованных пользователей
 authorized_users = set()
 
 all_assets = [
@@ -30,15 +28,10 @@ def get_signal_message():
     asset = random.choice(all_assets)
     direction = random.choice(["📈 🟢 BUY", "📉 🔴 SELL"])
     minutes = random.randint(1, 5) 
-    tf = f"M{minutes}"
-    conf = random.randint(75, 99) 
     end_time = datetime.datetime.now() + datetime.timedelta(minutes=minutes)
-    
-    advice = "✅ ВХОД: В первые 5-10 сек после сигнала.\nМани-менеджмент: 2-3% от баланса."
-    
     return (f"📡 СИГНАЛ\n\n🔹 Активы: {asset}\n⚡️ Направление: {direction}\n"
-            f"📊 ТФ: {tf}\n⏱ Время: {minutes} мин\n⏳ Закрыть в: {end_time.strftime('%H:%M:%S')}\n"
-            f"🔥 Уверенность: {conf}%\n\n{advice}")
+            f"⏱ Время: {minutes} мин\n⏳ Закрыть в: {end_time.strftime('%H:%M:%S')}\n"
+            f"🔥 Уверенность: {random.randint(75, 99)}%\n\n✅ ВХОД: В первые 5-10 сек.")
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
@@ -48,37 +41,37 @@ async def start(message: types.Message):
     ])
     await message.answer("Привет! Зарегистрируйся и нажми кнопку после пополнения:", reply_markup=kb)
 
+# 1. Пользователь нажал "Я пополнил"
 @dp.callback_query(F.data == "paid")
 async def paid_button(call: types.CallbackQuery):
+    # Теперь ТУТ создаем кнопки для АДМИНА
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Принять", callback_data=f"approve_{call.from_user.id}")],
-        [InlineKeyboardButton(text="❌ Отказать", callback_data=f"reject_{call.from_user.id}")]
+        [InlineKeyboardButton(text="✅ ОДОБРИТЬ пополнение", callback_data=f"approve_{call.from_user.id}")],
+        [InlineKeyboardButton(text="❌ ОТКАЗАТЬ", callback_data=f"reject_{call.from_user.id}")]
     ])
-    await bot.send_message(ADMIN_ID, f"⚠️ Новая заявка на доступ!\nПользователь: {call.from_user.full_name} (ID: {call.from_user.id})", reply_markup=kb)
-    await call.message.answer("✅ Заявка отправлена администратору. Ожидайте.")
+    await bot.send_message(ADMIN_ID, f"⚠️ ЗАЯВКА НА ПОПОЛНЕНИЕ!\nПользователь: {call.from_user.full_name}\nID: {call.from_user.id}", reply_markup=kb)
+    await call.answer("Заявка отправлена администратору!")
 
+# 2. Обработка кнопок АДМИНОМ
 @dp.callback_query(F.data.startswith("approve_"))
 async def approve(call: types.CallbackQuery):
     user_id = int(call.data.split("_")[1])
     authorized_users.add(user_id)
-    await bot.send_message(user_id, "✅ Баланс подтвержден! Доступ к сигналам открыт. Используй /get")
-    await call.message.edit_text(f"✅ Пользователь {user_id} принят.")
+    await bot.send_message(user_id, "✅ Ваш баланс подтвержден! Доступ к сигналам открыт. Пиши /get")
+    await call.message.edit_text(f"✅ Пользователь {user_id} ОДОБРЕН.")
 
 @dp.callback_query(F.data.startswith("reject_"))
 async def reject(call: types.CallbackQuery):
     user_id = int(call.data.split("_")[1])
-    await bot.send_message(user_id, "❌ Пополнение не подтверждено. Свяжитесь с поддержкой.")
-    await call.message.edit_text(f"❌ Пользователь {user_id} отклонен.")
+    await bot.send_message(user_id, "❌ Пополнение не подтверждено.")
+    await call.message.edit_text(f"❌ Пользователь {user_id} ОТКЛОНЕН.")
 
 @dp.message(Command("get"))
 async def get_signal(message: types.Message):
     if message.from_user.id in authorized_users:
         await message.answer(get_signal_message())
     else:
-        await message.answer("❌ Доступ закрыт. Сначала пополни баланс и нажми кнопку в /start")
-
-async def main():
-    await dp.start_polling(bot)
+        await message.answer("❌ Доступ закрыт. Сначала пополни баланс и жди одобрения админа.")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(dp.start_polling(bot))
