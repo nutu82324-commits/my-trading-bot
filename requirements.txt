@@ -1,4 +1,3 @@
-PyQt6
+fastapi
+uvicorn
 google-generativeai
-pyautogui
-pillow
