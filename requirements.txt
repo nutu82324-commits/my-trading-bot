@@ -1,7 +1,1 @@
 aiogram==2.25.1
-aiohttp==3.8.6
-certifi
-idna
-charset-normalizer
-attrs
-typing-extensions
