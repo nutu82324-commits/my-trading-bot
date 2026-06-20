@@ -1,6 +1,1 @@
-git init
-git add .
-git commit -m "First commit"
-git remote add origin ССЫЛКА_НА_ВАШ_РЕПОЗИТОРИЙ
-git branch -M main
-git push -u origin main
+aiohttp==3.9.5
