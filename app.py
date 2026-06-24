@@ -18,7 +18,7 @@ logger = logging.getLogger("TeamMasterAuto")
 # --- КОНФИГУРАЦИЯ СЕТИ И ПАРТНЕРКИ ---
 BOT_TOKEN = "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
 DB_FILE = "requests.json"
-ADMIN_ID = "6765689893" # ЗАМЕНИ ЭТО ЧИСЛО НА СВОЙ РЕАЛЬНЫЙ TELEGRAM ID ДЛЯ ОБХОДА ПРОВЕРОК
+ADMIN_ID = "6765689893"  # ЗАМЕНИ ЭТО ЧИСЛО НА СВОЙ РЕАЛЬНЫЙ TELEGRAM ID ДЛЯ ОБХОДА ПРОВЕРОК
 
 # Данные партнерки
 PARTNER_ID = "1336904"
@@ -41,7 +41,7 @@ async def start_webhook():
     app.router.add_get('/', handle)
     runner = web.AppRunner(app)
     await runner.setup()
-    # Читем порт, который дает Render, или берем дефолтный 8000
+    # Читаем порт, который дает Render, или берем дефолтный 8000
     port = int(os.environ.get("PORT", 8000))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
@@ -126,9 +126,8 @@ async def cmd_start(message: types.Message):
 
     # Проверка на админа / создателя
     if message.from_user.id == ADMIN_ID:
-        await message.answer_photo(
-            photo=PHOTO_URL, 
-            caption="Привет, Босс! Для тебя защита отключена. Держи актуальный торговый сигнал от системы:", 
+        await message.answer(
+            "Привет, Босс! Для тебя защита отключена. Держи актуальный торговый сигнал от системы:", 
             reply_markup=get_signal_keyboard(), 
             parse_mode="Markdown"
         )
@@ -141,7 +140,7 @@ async def cmd_start(message: types.Message):
         "Синхронизация с ядром ИИ **HROM QUANTUM CORE v18.0** установлена.\n\n"
         "🌐 **Please choose your language / Пожалуйста, выберите язык:**"
     )
-    await message.answer_photo(photo=PHOTO_URL, caption=welcome_text, reply_markup=get_lang_keyboard(), parse_mode="Markdown")
+    await message.answer(welcome_text, reply_markup=get_lang_keyboard(), parse_mode="Markdown")
 
 @dp.callback_query(F.data.startswith("lang:"))
 async def process_lang(callback: types.CallbackQuery):
