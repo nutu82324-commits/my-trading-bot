@@ -67,7 +67,6 @@ def generate_api_hash(user_id: str) -> str:
     hash_string = f"{user_id}:{PARTNER_ID}:{API_TOKEN}"
     return hashlib.md5(hash_string.encode('utf-8')).hexdigest()
 
-# Возвращает кортеж: (is_ref_valid, is_deposit_valid)
 async def check_pocket_api_full(user_id: str) -> tuple[bool, bool]:
     api_hash = generate_api_hash(user_id)
     url = f"https://affiliate.pocketoption.com/api/user-info/{user_id}/{PARTNER_ID}/{api_hash}"
@@ -92,6 +91,29 @@ DEPOSIT_TEXTS = {
     "en": "💳 **STEP 2: DEPOSIT ACTIVATION**\n\nYour ID was successfully found and verified!\n\nTo activate your AI account, top up your platform balance with **$20 or more**.\n\n🎁 Use promo code **WELCOME50** when depositing and get **+50% to your deposit** for free!"
 }
 
+# ПОЛНЫЙ СПИСОК ВСЕХ АКТИВОВ НА ПЛАТФОРМЕ
+ALL_PAIRS = [
+    # Валютные пары (Обычные + OTC)
+    "EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)", 
+    "AUD/USD (OTC)", "GBP/JPY (OTC)", "USD/CHF (OTC)", "NZD/USD (OTC)", 
+    "USD/CAD (OTC)", "EUR/GBP (OTC)", "EUR/CHF (OTC)", "AUD/JPY (OTC)",
+    "GBP/CAD (OTC)", "GBP/CHF (OTC)", "GBP/AUD (OTC)", "AUD/CAD (OTC)",
+    "EUR/USD", "GBP/USD", "USD/JPY", "EUR/JPY", "AUD/USD", "USD/CAD",
+    
+    # Криптовалюта (Crypto)
+    "BTC/USD (OTC)", "ETH/USD (OTC)", "LTC/USD (OTC)", "XRP/USD (OTC)",
+    "TRX/USD (OTC)", "ADA/USD (OTC)", "BTC/USD", "ETH/USD", "SOL/USD",
+
+    # Акции компаний (Stocks)
+    "Apple (OTC)", "Microsoft (OTC)", "Google (OTC)", "Amazon (OTC)", 
+    "Tesla (OTC)", "Meta (OTC)", "NVIDIA (OTC)", "Netflix (OTC)", 
+    "Apple", "Microsoft", "Tesla", "Google",
+
+    # Сырьевые товары (Commodities)
+    "Gold (OTC)", "Silver (OTC)", "Crude Oil (OTC)", "Brent Oil (OTC)",
+    "Gold", "Silver", "Crude Oil", "UKBrent"
+]
+
 def get_signal_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📈 ОТКРЫТЬ POCKET OPTION", url=PLATFORM_URL)],
@@ -108,8 +130,7 @@ def get_lang_keyboard():
     ])
 
 def generate_signal_text() -> str:
-    pairs = ["EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)", "AUD/USD (OTC)", "GBP/JPY (OTC)"]
-    selected_pair = random.choice(pairs)
+    selected_pair = random.choice(ALL_PAIRS)
     direction = random.choice(["🟢 ВВЕРХ / CALL", "🔴 ВНИЗ / PUT"])
     timeframe = random.choice([1, 3, 5])  
     accuracy = round(random.uniform(91.4, 96.2), 1)
@@ -123,39 +144,66 @@ def generate_signal_text() -> str:
         f"⚠️ *Входите в сделку строго по указанному времени. Соблюдайте риск-менеджмент!*"
     )
 
+async def send_analyzing_process(chat_id: int, bot_instance: Bot):
+    p1, p2, p3 = random.sample(ALL_PAIRS, 3)
+    
+    status_msg = await bot_instance.send_message(
+        chat_id=chat_id,
+        text=f"🔄 **HROM QUANTUM CORE v18.0 запущено...**\n\n📡 Сканирование глобальных рынков (Crypto, Stocks, Commodities)...\n⌛ Анализ волатильности актива `{p1}`"
+    )
+    await asyncio.sleep(1.2)
+    
+    try:
+        await status_msg.edit_text(
+            f"🔄 **ИИ-АНАЛИЗ КОРЗИНЫ АКТИВОВ...**\n\n📊 Проверка биржевых стаканов и индикатора RSI...\n⌛ Изучение объемов на `{p2}`"
+        )
+        await asyncio.sleep(1.2)
+        
+        await status_msg.edit_text(
+            f"🔄 **ФОРМИРОВАНИЕ ТОЧКИ ВХОДА...**\n\n🎯 Поиск паттернов Price Action и ложных пробитий...\n⌛ Расчет апсайда на `{p3}`"
+        )
+        await asyncio.sleep(1.0)
+    except TelegramBadRequest:
+        pass
+        
+    try:
+        await status_msg.delete()
+    except TelegramBadRequest:
+        pass
+
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
 
-    # 1. Проверка на главного админа
     if message.from_user.id in ADMIN_IDS:
-        await message.answer(
-            "Привет, Босс! Для тебя защита отключена. Держи актуальный торговый сигнал от системы:", 
-            reply_markup=get_signal_keyboard(), 
-            parse_mode="Markdown"
-        )
+        await message.answer("Привет, Босс! Запускаю моментальный анализ рынка...", parse_mode="Markdown")
+        await send_analyzing_process(message.chat.id, bot)
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
 
-    # 2. Проверка на VIP-пользователя (друга) из белого списка
     if message.from_user.id in VIP_IDS:
-        await message.answer(
-            "Добро пожаловать! Вам предоставлен закрытый VIP-доступ к торговой системе Team Master. Ловите сигнал:", 
-            reply_markup=get_signal_keyboard(), 
-            parse_mode="Markdown"
-        )
+        await message.answer("Добро пожаловать, VIP! Подключаю торговое ядро...", parse_mode="Markdown")
+        await send_analyzing_process(message.chat.id, bot)
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
 
-    # 3. Для всех остальных — обычное приветствие
-    welcome_text = (
-        "🤖 **TEAM MASTER GLOBAL BOT**\n\n"
-        "📊 Добро пожаловать в систему **Team Master**!\n"
-        "Синхронизация с ядром ИИ **HROM QUANTUM CORE v18.0** установлена.\n\n"
-        "🌐 **Please choose your language / Пожалуйста, выберите язык:**"
+    info_text = (
+        "📈 **TEAM MASTER GLOBAL BOT v18.0** 📈\n\n"
+        "Добро пожаловать в автоматизированную систему генерации сигналов от **Команды Мастер**!\n\n"
+        "🤖 **Что умеет этот ИИ-бот:**\n"
+        "• Круглосуточно сканирует все рынки: валюты, криптовалюту, акции и сырьевые товары (включая OTC).\n"
+        "• Рассчитывает точки входа, используя технический анализ (RSI, Bollinger Bands, Скользящие средние).\n"
+        "• Помогает трейдерам торговать с математическим преимуществом на дистанции.\n\n"
+        "🌍 *Для запуска процесса синхронизации с сервером ИИ, пожалуйста, выберите ваш язык ниже:* / *Please select your language below to start:* "
     )
-    await message.answer(welcome_text, reply_markup=get_lang_keyboard(), parse_mode="Markdown")
+    
+    await message.answer_photo(
+        photo=PHOTO_URL,
+        caption=info_text,
+        reply_markup=get_lang_keyboard(),
+        parse_mode="Markdown"
+    )
 
 @dp.callback_query(F.data.startswith("lang:"))
 async def process_lang(callback: types.CallbackQuery):
@@ -163,7 +211,7 @@ async def process_lang(callback: types.CallbackQuery):
     
     reg_text = (
         "🤖 **TEAM MASTER — HROM QUANTUM CORE v18.0**\n\n"
-        "📊 **Добро пожаловать в программное ядро Команды Мастер!** Наш ИИ-алгоритм непрерывно сканирует более 40 валютных пар и OTC-активов, вычисляя идеальные точки входа на основе технического анализа. Средний винрейт составляет **89.4% – 95.8%**.\n\n"
+        "📊 **Добро пожаловать в программное ядро Команды Мастер!** Наш ИИ-алгоритм непрерывно сканирует рынок, вычисляя идеальные точки входа на основе технического анализа. Средний винрейт составляет **89.4% – 95.8%**.\n\n"
         "📝 **ШАГ 1: РЕГИСТРАЦИЯ В СИСТЕМЕ**\n\n"
         "Для того чтобы бот смог привязать ваш аккаунт к торговому ядру, вам необходимо создать новый личный кабинет на платформе брокера по ссылке ниже.\n\n"
         "👉 **Отправьте ваш числовой ID прямо в этот чат** ответным сообщением для автоматической проверки реферальной системы."
@@ -191,8 +239,8 @@ async def handle_id_input(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
 
-    # Если пишет админ или VIP — сразу выдаем сигнал
     if message.from_user.id in ADMIN_IDS or message.from_user.id in VIP_IDS:
+        await send_analyzing_process(message.chat.id, bot)
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
 
@@ -223,6 +271,7 @@ async def handle_id_input(message: types.Message):
     if is_deposit_ok:
         user_data["status"] = "approved"
         save_db(db)
+        await send_analyzing_process(message.chat.id, bot)
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
     else:
         user_data["status"] = "waiting_deposit"
@@ -253,6 +302,7 @@ async def process_check_deposit(callback: types.CallbackQuery):
         try: await callback.message.delete()
         except TelegramBadRequest: pass
         
+        await send_analyzing_process(callback.message.chat.id, bot)
         await callback.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
     else:
         await callback.answer("❌ Депозит от $20 пока не обнаружен. Пополните баланс или подождите 1-2 минуты.", show_alert=True)
@@ -267,6 +317,7 @@ async def process_next_signal(callback: types.CallbackQuery):
         try: await callback.message.delete()
         except TelegramBadRequest: pass
         
+        await send_analyzing_process(callback.message.chat.id, bot)
         await callback.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
     else:
         await callback.answer("❌ Доступ ограничен. Выполните шаги регистрации и активации.", show_alert=True)
