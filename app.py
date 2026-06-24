@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("TeamMasterAuto")
 
 # --- КОНФИГУРАЦИЯ СЕТИ И ПАРТНЕРКИ ---
-BOT_TOKEN = "8080518030:AAHHvHA9go-ypluApRdJanhgkuz2uWX6wjk"
+BOT_TOKEN = "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
 DB_FILE = "requests.json"
 ADMIN_ID = "6765689893" # ЗАМЕНИ ЭТО ЧИСЛО НА СВОЙ РЕАЛЬНЫЙ TELEGRAM ID ДЛЯ ОБХОДА ПРОВЕРОК
 
