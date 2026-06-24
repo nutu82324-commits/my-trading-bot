@@ -93,7 +93,7 @@ DEPOSIT_TEXTS = {
 
 # ПОЛНЫЙ СПИСОК ВСЕХ АКТИВОВ НА ПЛАТФОРМЕ
 ALL_PAIRS = [
-"EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)", 
+    "EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)", 
     "AUD/USD (OTC)", "GBP/JPY (OTC)", "USD/CHF (OTC)", "NZD/USD (OTC)", 
     "USD/CAD (OTC)", "EUR/GBP (OTC)", "EUR/CHF (OTC)", "AUD/JPY (OTC)",
     "GBP/CAD (OTC)", "GBP/CHF (OTC)", "GBP/AUD (OTC)", "AUD/CAD (OTC)",
@@ -137,16 +137,17 @@ def generate_signal_text() -> str:
         f"⚠️ *Входите в сделку строго по указанному времени. Соблюдайте риск-менеджмент!*"
     )
 
+# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ (НЕ ПАДАЕТ) ---
 async def send_analyzing_process(chat_id: int, bot_instance: Bot):
     p1, p2, p3 = random.sample(ALL_PAIRS, 3)
     
-    status_msg = await bot_instance.send_message(
-        chat_id=chat_id,
-        text=f"🔄 **HROM QUANTUM CORE v18.0 запущено...**\n\n📡 Сканирование глобальных рынков (Crypto, Stocks, Commodities)...\n⌛ Анализ волатильности актива `{p1}`"
-    )
-    await asyncio.sleep(1.2)
-    
     try:
+        status_msg = await bot_instance.send_message(
+            chat_id=chat_id,
+            text=f"🔄 **HROM QUANTUM CORE v18.0 запущено...**\n\n📡 Сканирование глобальных рынков (Crypto, Stocks, Commodities)...\n⌛ Анализ волатильности актива `{p1}`"
+        )
+        await asyncio.sleep(1.2)
+        
         await status_msg.edit_text(
             f"🔄 **ИИ-АНАЛИЗ КОРЗИНЫ АКТИВОВ...**\n\n📊 Проверка биржевых стаканов и индикатора RSI...\n⌛ Изучение объемов на `{p2}`"
         )
@@ -156,13 +157,11 @@ async def send_analyzing_process(chat_id: int, bot_instance: Bot):
             f"🔄 **ФОРМИРОВАНИЕ ТОЧКИ ВХОДА...**\n\n🎯 Поиск паттернов Price Action и ложных пробитий...\n⌛ Расчет апсайда на `{p3}`"
         )
         await asyncio.sleep(1.0)
-    except TelegramBadRequest:
-        pass
         
-    try:
+        # Безопасное удаление
         await status_msg.delete()
-    except TelegramBadRequest:
-        pass
+    except Exception as e:
+        logger.error(f"Анимация не сработала, но бот жив: {e}")
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
