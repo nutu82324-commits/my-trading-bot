@@ -16,11 +16,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("TeamMasterAuto")
 
 # --- КОНФИГУРАЦИЯ СЕТИ И ПАРТНЕРКИ ---
-BOT_TOKEN = "8761108877:AAGzMIeErZoGcVlLvd-yO-w7FZbIezCQ9SE"
+BOT_TOKEN = "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
 DB_FILE = "requests.json"
 
 # СПИСОК АДМИНОВ (Кому разрешен полный доступ без регистрации и депозитов)
-# Просто добавь ID друга через запятую, например: [8761108877, 123456789]
+# Твой ID уже здесь. Чтобы добавить друга, впиши его через запятую: [6765689893, ID_ДРУГА]
 ADMIN_IDS = [6765689893]  
 
 # Данные партнерки
@@ -32,7 +32,7 @@ SUPPORT_URL = "https://t.me/andriddddd"
 TELEGRAM_CHANNEL = "https://t.me/+uekq4TquqkM4Mzcy" 
 PHOTO_URL = "https://i.ibb.co/L1yZ6Gz/team-master-cover.jpg"
 
-bot = "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 # --- ФЕЙКОВЫЙ ВЕБ-СЕРВЕР ДЛЯ ОБХОДА ТАЙМАУТА RENDER ---
@@ -125,7 +125,7 @@ async def cmd_start(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
 
-    # Проверка: входит ли пользователь в список админов
+    # Проверка на админа
     if message.from_user.id in ADMIN_IDS:
         await message.answer(
             "Привет, Босс! Для тебя защита отключена. Держи актуальный торговый сигнал от системы:", 
@@ -177,7 +177,7 @@ async def handle_id_input(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
 
-    # Если пишет админ — просто выдаем сигнал
+    # Если пишет админ
     if message.from_user.id in ADMIN_IDS:
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
