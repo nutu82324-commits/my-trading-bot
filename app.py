@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("TeamMasterAuto")
 
 # --- КОНФИГУРАЦИЯ СЕТИ И ПАРТНЕРКИ ---
-BOT_TOKEN = "8761108877:AAGzMIeErZoGcVlLvd-yO-w7FZbIezCQ9SE"
+BOT_TOKEN = "8080518030:AAHHvHA9go-ypluApRdJanhgkuz2uWX6wjk"
 DB_FILE = "requests.json"
 
 # Данные из скриншота Capture+_2026-06-24-22-23-11.png и твоей ссылки
