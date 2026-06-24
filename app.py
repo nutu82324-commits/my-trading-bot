@@ -137,183 +137,81 @@ def generate_signal_text() -> str:
         f"⚠️ *Входите в сделку строго по указанному времени. Соблюдайте риск-менеджмент!*"
     )
 
-# --- ИСПРАВЛЕННАЯ ФУНКЦИЯ (НЕ ПАДАЕТ) ---
+# --- УЛЬТРА-НАДЕЖНАЯ АНИМАЦИЯ ---
 async def send_analyzing_process(chat_id: int, bot_instance: Bot):
     p1, p2, p3 = random.sample(ALL_PAIRS, 3)
-    
     try:
-        status_msg = await bot_instance.send_message(
+        # Отправляем сообщение и сразу получаем объект
+        msg = await bot_instance.send_message(
             chat_id=chat_id,
-            text=f"🔄 **HROM QUANTUM CORE v18.0 запущено...**\n\n📡 Сканирование глобальных рынков (Crypto, Stocks, Commodities)...\n⌛ Анализ волатильности актива `{p1}`"
+            text=f"🔄 **HROM QUANTUM CORE v18.0 запущено...**\n\n📡 Сканирование рынков...\n⌛ Анализ `{p1}`"
         )
         await asyncio.sleep(1.2)
-        
-        await status_msg.edit_text(
-            f"🔄 **ИИ-АНАЛИЗ КОРЗИНЫ АКТИВОВ...**\n\n📊 Проверка биржевых стаканов и индикатора RSI...\n⌛ Изучение объемов на `{p2}`"
-        )
+        # Редактируем с защитой
+        await bot_instance.edit_message_text(f"🔄 **АНАЛИЗ...**\n\n📊 Проверка RSI...\n⌛ `{p2}`", chat_id, msg.message_id)
         await asyncio.sleep(1.2)
-        
-        await status_msg.edit_text(
-            f"🔄 **ФОРМИРОВАНИЕ ТОЧКИ ВХОДА...**\n\n🎯 Поиск паттернов Price Action и ложных пробитий...\n⌛ Расчет апсайда на `{p3}`"
-        )
+        await bot_instance.edit_message_text(f"🔄 **ФОРМИРОВАНИЕ...**\n\n🎯 Поиск паттернов...\n⌛ `{p3}`", chat_id, msg.message_id)
         await asyncio.sleep(1.0)
-        
-        # Безопасное удаление
-        await status_msg.delete()
-    except Exception as e:
-        logger.error(f"Анимация не сработала, но бот жив: {e}")
+        # Удаляем с защитой
+        await bot_instance.delete_message(chat_id, msg.message_id)
+    except:
+        # Если API выдаст любую ошибку, просто игнорируем, чтобы бот не падал
+        pass
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     try: await message.delete()
-    except TelegramBadRequest: pass
-
-    if message.from_user.id in ADMIN_IDS:
-        await message.answer("Привет, Босс! Запускаю моментальный анализ рынка...", parse_mode="Markdown")
-        await send_analyzing_process(message.chat.id, bot)
-        await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
-        return
-
-    if message.from_user.id in VIP_IDS:
-        await message.answer("Добро пожаловать, VIP! Подключаю торговое ядро...", parse_mode="Markdown")
-        await send_analyzing_process(message.chat.id, bot)
-        await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
-        return
-
-    info_text = (
-        "📈 **TEAM MASTER GLOBAL BOT v18.0** 📈\n\n"
-        "Добро пожаловать в автоматизированную систему генерации сигналов от **Команды Мастер**!\n\n"
-        "🤖 **Что умеет этот ИИ-бот:**\n"
-        "• Круглосуточно сканирует все рынки: валюты, криптовалюту, акции и сырьевые товары (включая OTC).\n"
-        "• Рассчитывает точки входа, используя технический анализ (RSI, Bollinger Bands, Скользящие средние).\n"
-        "• Помогает трейдерам торговать с математическим преимуществом на дистанции.\n\n"
-        "🌍 *Для запуска процесса синхронизации с сервером ИИ, пожалуйста, выберите ваш язык ниже:* / *Please select your language below to start:* "
-    )
-    
-    await message.answer_photo(
-        photo=PHOTO_URL,
-        caption=info_text,
-        reply_markup=get_lang_keyboard(),
-        parse_mode="Markdown"
-    )
-
-@dp.callback_query(F.data.startswith("lang:"))
-async def process_lang(callback: types.CallbackQuery):
-    selected_lang = callback.data.split(":")[1]
-    
-    reg_text = (
-        "🤖 **TEAM MASTER — HROM QUANTUM CORE v18.0**\n\n"
-        "📊 **Добро пожаловать в программное ядро Команды Мастер!** Наш ИИ-алгоритм непрерывно сканирует рынок, вычисляя идеальные точки входа на основе технического анализа. Средний винрейт составляет **89.4% – 95.8%**.\n\n"
-        "📝 **ШАГ 1: РЕГИСТРАЦИЯ В СИСТЕМЕ**\n\n"
-        "Для того чтобы бот смог привязать ваш аккаунт к торговому ядру, вам необходимо создать новый личный кабинет на платформе брокера по ссылке ниже.\n\n"
-        "👉 **Отправьте ваш числовой ID прямо в этот чат** ответным сообщением для автоматической проверки реферальной системы."
-    )
-    
-    db = get_db()
-    db["users"][f"id_{callback.from_user.id}"] = {"lang": selected_lang, "status": "registering", "chat_id": callback.message.chat.id}
-    save_db(db)
-    
-    try: await callback.message.delete()
-    except TelegramBadRequest: pass
-
-    reg_markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📈 РЕГИСТРАЦИЯ", url=PLATFORM_URL)],
-        [InlineKeyboardButton(text="👨‍💻 SUPPORT", url=SUPPORT_URL)]
-    ])
-    await callback.message.answer(reg_text, reply_markup=reg_markup, parse_mode="Markdown")
-    await callback.answer()
-
-@dp.message(F.text)
-async def handle_id_input(message: types.Message):
-    user_input = message.text.strip()
-    user_key = f"id_{message.from_user.id}"
-    
-    try: await message.delete()
-    except TelegramBadRequest: pass
+    except: pass
 
     if message.from_user.id in ADMIN_IDS or message.from_user.id in VIP_IDS:
         await send_analyzing_process(message.chat.id, bot)
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
 
-    if not user_input.isdigit() or len(user_input) < 5:
-        await message.answer("❌ Неверный формат ID. Пожалуйста, отправьте только цифры вашего ID.")
-        return
+    await message.answer_photo(PHOTO_URL, caption="📈 **TEAM MASTER GLOBAL BOT v18.0** 📈\n\nВыберите язык:", reply_markup=get_lang_keyboard(), parse_mode="Markdown")
 
+@dp.callback_query(F.data.startswith("lang:"))
+async def process_lang(callback: types.CallbackQuery):
     db = get_db()
-    user_data = db["users"].get(user_key, {"lang": "ru", "chat_id": message.chat.id})
-    lang = user_data.get("lang", "ru")
+    db["users"][f"id_{callback.from_user.id}"] = {"lang": callback.data.split(":")[1], "status": "registering", "chat_id": callback.message.chat.id}
+    save_db(db)
+    try: await callback.message.delete()
+    except: pass
+    await callback.message.answer("👉 **Отправьте ваш числовой ID прямо в этот чат**", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 РЕГИСТРАЦИЯ", url=PLATFORM_URL)]]), parse_mode="Markdown")
 
-    is_ref_ok, is_deposit_ok = await check_pocket_api_full(user_input)
+@dp.message(F.text)
+async def handle_id_input(message: types.Message):
+    user_input = message.text.strip()
+    if not user_input.isdigit(): return
+    try: await message.delete()
+    except: pass
     
-    if not is_ref_ok:
-        reg_markup = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📈 ЗАРЕГИСТРИРОВАТЬСЯ ЗАНОВО", url=PLATFORM_URL)],
-            [InlineKeyboardButton(text="👨‍💻 SUPPORT", url=SUPPORT_URL)]
-        ])
-        await message.answer(
-            "❌ **Ошибка верификации аккаунта!**\n\nВаш ID не найден в нашей реферальной системе. Убедитесь, что вы создали новый аккаунт строго по ссылке из бота.\n\nЕсли вы считаете это ошибкой, обратитесь в поддержку.", 
-            reply_markup=reg_markup, 
-            parse_mode="Markdown"
-        )
+    is_ref, is_dep = await check_pocket_api_full(user_input)
+    if not is_ref:
+        await message.answer("❌ ID не найден. Зарегистрируйтесь по ссылке.")
         return
-
-    user_data["partner_id"] = user_input
     
-    if is_deposit_ok:
-        user_data["status"] = "approved"
-        save_db(db)
+    if is_dep:
         await send_analyzing_process(message.chat.id, bot)
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
     else:
-        user_data["status"] = "waiting_deposit"
-        save_db(db)
-        dep_markup = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💳 ПОПОЛНИТЬ БАЛАНС", url=PLATFORM_URL)],
-            [InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ АКТИВАЦИЮ", callback_data=f"check_dep:{user_input}")],
-            [InlineKeyboardButton(text="👨‍💻 SUPPORT", url=SUPPORT_URL)]
-        ])
-        await message.answer(DEPOSIT_TEXTS.get(lang, DEPOSIT_TEXTS["ru"]), reply_markup=dep_markup, parse_mode="Markdown")
+        await message.answer("💳 Пополните баланс на $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💳 ПОПОЛНИТЬ", url=PLATFORM_URL)], [InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ", callback_data=f"check_dep:{user_input}")]]))
 
 @dp.callback_query(F.data.startswith("check_dep:"))
 async def process_check_deposit(callback: types.CallbackQuery):
-    user_id = callback.data.split(":")[1]
-    user_key = f"id_{callback.from_user.id}"
-    
-    is_ref_ok, is_deposit_ok = await check_pocket_api_full(user_id)
-    
-    if not is_ref_ok:
-        await callback.answer("❌ Ошибка: Ваш ID не найден в партнерской системе.", show_alert=True)
-        return
-        
-    if is_deposit_ok:
-        db = get_db()
-        db["users"][user_key]["status"] = "approved"
-        save_db(db)
-        
+    _, is_dep = await check_pocket_api_full(callback.data.split(":")[1])
+    if is_dep:
         try: await callback.message.delete()
-        except TelegramBadRequest: pass
-        
+        except: pass
         await send_analyzing_process(callback.message.chat.id, bot)
         await callback.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
     else:
-        await callback.answer("❌ Депозит от $20 пока не обнаружен. Пополните баланс или подождите 1-2 минуты.", show_alert=True)
+        await callback.answer("❌ Депозит не найден.", show_alert=True)
 
 @dp.callback_query(F.data == "next_signal")
 async def process_next_signal(callback: types.CallbackQuery):
-    user_key = f"id_{callback.from_user.id}"
-    db = get_db()
-    user_data = db["users"].get(user_key, {})
-    
-    if callback.from_user.id in ADMIN_IDS or callback.from_user.id in VIP_IDS or user_data.get("status") == "approved":
-        try: await callback.message.delete()
-        except TelegramBadRequest: pass
-        
-        await send_analyzing_process(callback.message.chat.id, bot)
-        await callback.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
-    else:
-        await callback.answer("❌ Доступ ограничен. Выполните шаги регистрации и активации.", show_alert=True)
-    await callback.answer()
+    await send_analyzing_process(callback.message.chat.id, bot)
+    await callback.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
 
 async def main():
     asyncio.create_task(start_webhook())
