@@ -6,6 +6,7 @@ import hashlib
 from datetime import datetime, timedelta
 import random
 import httpx
+from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -17,19 +18,36 @@ logger = logging.getLogger("TeamMasterAuto")
 # --- КОНФИГУРАЦИЯ СЕТИ И ПАРТНЕРКИ ---
 BOT_TOKEN = "8080518030:AAHHvHA9go-ypluApRdJanhgkuz2uWX6wjk"
 DB_FILE = "requests.json"
+ADMIN_ID = "6765689893" # ЗАМЕНИ ЭТО ЧИСЛО НА СВОЙ РЕАЛЬНЫЙ TELEGRAM ID ДЛЯ ОБХОДА ПРОВЕРОК
 
-# Данные из скриншота Capture+_2026-06-24-22-23-11.png и твоей ссылки
+# Данные партнерки
 PARTNER_ID = "1336904"
 API_TOKEN = "Zc4X9zu0EMrqbPuLy3tN"
-PLATFORM_URL = "https://u3.shortink.io/smart/RLQDltKf13Zlrj"  # Твоя новая рефералка
+PLATFORM_URL = "https://u3.shortink.io/smart/RLQDltKf13Zlrj" 
 
 SUPPORT_URL = "https://t.me/andriddddd"       
 TELEGRAM_CHANNEL = "https://t.me/+uekq4TquqkM4Mzcy" 
-PHOTO_URL = "https://i.ibb.co/L1yZ6Gz/team-master-cover.jpg"  # Замени на свое фото, когда загрузишь
+PHOTO_URL = "https://i.ibb.co/L1yZ6Gz/team-master-cover.jpg"
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# --- ФЕЙКОВЫЙ ВЕБ-СЕРВЕР ДЛЯ ОБХОДА ТАЙМАУТА RENDER ---
+async def handle(request):
+    return web.Response(text="Bot is alive!")
+
+async def start_webhook():
+    app = web.Application()
+    app.router.add_get('/', handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    # Читем порт, который дает Render, или берем дефолтный 8000
+    port = int(os.environ.get("PORT", 8000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    logger.info(f"Веб-сервер запущен на порту {port}")
+
+# --- РАБОТА С БАЗОЙ ДАННЫХ ---
 def get_db():
     if not os.path.exists(DB_FILE):
         return {"users": {}}
@@ -41,12 +59,10 @@ def save_db(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
-# Функция генерации хэша md5(user_id:partner_id:api_token) для запроса к брокеру
 def generate_api_hash(user_id: str) -> str:
     hash_string = f"{user_id}:{PARTNER_ID}:{API_TOKEN}"
     return hashlib.md5(hash_string.encode('utf-8')).hexdigest()
 
-# Функция автоматической проверки регистрации и депозита через API Pocket Option
 async def check_pocket_api(user_id: str) -> bool:
     api_hash = generate_api_hash(user_id)
     url = f"https://affiliate.pocketoption.com/api/user-info/{user_id}/{PARTNER_ID}/{api_hash}"
@@ -58,11 +74,7 @@ async def check_pocket_api(user_id: str) -> bool:
                 data = response.json()
                 logger.info(f"API ответ для ID {user_id}: {data}")
                 
-                # Проверяем, что юзер закрепился за твоей партнеркой
                 if data.get("status") == "success" or data.get("partner_id") == int(PARTNER_ID):
-                    # Проверяем баланс или сумму депозитов (обычно поле deposit_total или вносим условие депозита)
-                    # Если API возвращает информацию, смотрим на общую сумму пополнений (например, больше или равно 20)
-                    # В зависимости от структуры JSON Pocket Option, обычно это 'deposit' или 'ftd'
                     deposit_amount = float(data.get("deposit", 0))
                     if deposit_amount >= 20:
                         return True
@@ -79,7 +91,8 @@ def get_signal_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📈 ОТКРЫТЬ POCKET OPTION", url=PLATFORM_URL)],
         [InlineKeyboardButton(text="📢 НАШ ТЕЛЕГРАМ КАНАЛ", url=TELEGRAM_CHANNEL)],
-        [InlineKeyboardButton(text="👨‍💻 РАЗРАБОТЧИК / SUPPORT", url=SUPPORT_URL)]
+        [InlineKeyboardButton(text="👨‍💻 РАЗРАБОТЧИК / SUPPORT", url=SUPPORT_URL)],
+        [InlineKeyboardButton(text="🔄 СЛЕДУЮЩИЙ СИГНАЛ", callback_data="next_signal")]
     ])
 
 def get_lang_keyboard():
@@ -89,10 +102,38 @@ def get_lang_keyboard():
         [InlineKeyboardButton(text="🇫🇷 Français", callback_data="lang:fr"), InlineKeyboardButton(text="🇪🇸 Español", callback_data="lang:es")]
     ])
 
+# Функция генерации красивого минутного сигнала
+def generate_signal_text() -> str:
+    pairs = ["EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)", "AUD/USD (OTC)", "GBP/JPY (OTC)"]
+    selected_pair = random.choice(pairs)
+    direction = random.choice(["🟢 ВВЕРХ / CALL", "🔴 ВНИЗ / PUT"])
+    timeframe = random.choice([1, 3, 5])  # Исключительно минутные таймфреймы
+    accuracy = round(random.uniform(91.4, 96.2), 1)
+
+    return (
+        f"🚀 **TEAM MASTER — СИГНАЛ СФОРМИРОВАН** 🚀\n\n"
+        f"📊 **Активный актив:** `{selected_pair}`\n"
+        f"⏳ **Интервал / Экспирация:** `{timeframe} МИНУТ` \n"
+        f"📈 **Направление сделки:** {direction}\n"
+        f"🎯 **Уверенность ИИ-алгоритма:** `{accuracy}%`\n\n"
+        f"⚠️ *Входите в сделку строго по указанному времени. Соблюдайте риск-менеджмент!*"
+    )
+
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
+
+    # Проверка на админа / создателя
+    if message.from_user.id == ADMIN_ID:
+        await message.answer_photo(
+            photo=PHOTO_URL, 
+            caption="Привет, Босс! Для тебя защита отключена. Держи актуальный торговый сигнал от системы:", 
+            reply_markup=get_signal_keyboard(), 
+            parse_mode="Markdown"
+        )
+        await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
+        return
 
     welcome_text = (
         "🤖 **TEAM MASTER GLOBAL BOT**\n\n"
@@ -136,6 +177,11 @@ async def handle_id_input(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
 
+    # Если пишет админ — просто даем ему новый сигнал
+    if message.from_user.id == ADMIN_ID:
+        await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
+        return
+
     if not user_input.isdigit() or len(user_input) < 5:
         await message.answer("❌ Неверный формат ID. Пожалуйста, отправьте только цифры вашего ID.")
         return
@@ -162,7 +208,6 @@ async def process_check_deposit(callback: types.CallbackQuery):
     user_id = callback.data.split(":")[1]
     user_key = f"id_{callback.from_user.id}"
     
-    # Запрос к реальному API Pocket Option
     is_active = await check_pocket_api(user_id)
     
     if is_active:
@@ -173,26 +218,30 @@ async def process_check_deposit(callback: types.CallbackQuery):
         try: await callback.message.delete()
         except TelegramBadRequest: pass
         
-        # Генерируем реальный стартовый сигнал при успешной активации
-        pairs = ["EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)"]
-        selected_pair = random.choice(pairs)
-        direction = random.choice(["🟢 ВВЕРХ / CALL", "🔴 ВНИЗ / PUT"])
-        timeframe = random.choice([1, 3, 5])
-        accuracy = round(random.uniform(91.4, 96.2), 1)
-
-        signal_text = (
-            f"🚀 **TEAM MASTER — СИГНАЛ СФОРМИРОВАН** 🚀\n\n"
-            f"📊 **Активный актив:** `{selected_pair}`\n"
-            f"⏳ **Интервал / Экспирация:** `{timeframe} МИНУТ` \n"
-            f"📈 **Направление сделки:** {direction}\n"
-            f"🎯 **Уверенность ИИ-алгоритма:** `{accuracy}%`\n\n"
-            f"⚠️ *Входите в сделку строго по указанному времени. Соблюдайте риск-менеджмент!*"
-        )
-        await callback.message.answer(signal_text, reply_markup=get_signal_keyboard(), parse_mode="Markdown")
+        await callback.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
     else:
         await callback.answer("❌ Депозит от $20 пока не обнаружен. Пополните баланс или подождите 1-2 минуты.", show_alert=True)
 
+# Кнопка запроса следующего сигнала для верифицированных юзеров и админа
+@dp.callback_query(F.data == "next_signal")
+async def process_next_signal(callback: types.CallbackQuery):
+    user_key = f"id_{callback.from_user.id}"
+    db = get_db()
+    user_data = db["users"].get(user_key, {})
+    
+    if callback.from_user.id == ADMIN_ID or user_data.get("status") == "approved":
+        try: await callback.message.delete()
+        except TelegramBadRequest: pass
+        
+        await callback.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
+    else:
+        await callback.answer("❌ Доступ ограничен. Выполните шаги регистрации и активации.", show_alert=True)
+    await callback.answer()
+
 async def main():
+    # Запускаем фоновый веб-сервер, чтобы Render не закрывал Web Service по таймауту
+    asyncio.create_task(start_webhook())
+    
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
