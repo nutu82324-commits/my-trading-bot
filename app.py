@@ -19,9 +19,11 @@ logger = logging.getLogger("TeamMasterAuto")
 BOT_TOKEN = "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
 DB_FILE = "requests.json"
 
-# СПИСОК АДМИНОВ (Кому разрешен полный доступ без регистрации и депозитов)
-# Твой ID уже здесь. Чтобы добавить друга, впиши его через запятую: [6765689893, ID_ДРУГА]
+# Главный admin (ты)
 ADMIN_IDS = [6765689893]  
+
+# Белый список для друзей (проверка рефки и депозита для них отключена)
+VIP_IDS = [8273386412]
 
 # Данные партнерки
 PARTNER_ID = "1336904"
@@ -65,7 +67,8 @@ def generate_api_hash(user_id: str) -> str:
     hash_string = f"{user_id}:{PARTNER_ID}:{API_TOKEN}"
     return hashlib.md5(hash_string.encode('utf-8')).hexdigest()
 
-async def check_pocket_api(user_id: str) -> bool:
+# Возвращает кортеж: (is_ref_valid, is_deposit_valid)
+async def check_pocket_api_full(user_id: str) -> tuple[bool, bool]:
     api_hash = generate_api_hash(user_id)
     url = f"https://affiliate.pocketoption.com/api/user-info/{user_id}/{PARTNER_ID}/{api_hash}"
     
@@ -78,15 +81,15 @@ async def check_pocket_api(user_id: str) -> bool:
                 
                 if data.get("status") == "success" or data.get("partner_id") == int(PARTNER_ID):
                     deposit_amount = float(data.get("deposit", 0))
-                    if deposit_amount >= 20:
-                        return True
+                    is_deposit_ok = deposit_amount >= 20
+                    return True, is_deposit_ok
         except Exception as e:
             logger.error(f"Ошибка при запросе к API партнерки: {e}")
-    return False
+    return False, False
 
 DEPOSIT_TEXTS = {
-    "ru": "💳 **ШАГ 2: АКТИВАЦИЯ ДЕПОЗИТА**\n\nВаш ID успешно найден в системе!\n\nЧтобы алгоритм ИИ активировал ваш торговый аккаунт, пополните баланс на платформе на сумму **от $20**.\n\n🎁 Используйте промокод **WELCOME50** при пополнении и получите **+50% к вашему депозиту** бесплатно!\n\n👉 После пополнения бот автоматически верифицирует ваш баланс в течение нескольких минут.",
-    "en": "💳 **STEP 2: DEPOSIT ACTIVATION**\n\nYour ID was successfully found!\n\nTo activate your AI account, top up your platform balance with **$20 or more**.\n\n🎁 Use promo code **WELCOME50** when depositing and get **+50% to your deposit** for free!"
+    "ru": "💳 **ШАГ 2: АКТИВАЦИЯ ДЕПОЗИТА**\n\nВаш ID успешно найден в системе и подтвержден!\n\nЧтобы алгоритм ИИ активировал ваш торговый аккаунт, пополните баланс на платформе на сумму **от $20**.\n\n🎁 Используйте промокод **WELCOME50** при пополнении и получите **+50% к вашему депозиту** бесплатно!\n\n👉 После пополнения нажмите кнопку «ПРОВЕРИТЬ АКТИВАЦИЮ». Бот автоматически верифицирует ваш баланс.",
+    "en": "💳 **STEP 2: DEPOSIT ACTIVATION**\n\nYour ID was successfully found and verified!\n\nTo activate your AI account, top up your platform balance with **$20 or more**.\n\n🎁 Use promo code **WELCOME50** when depositing and get **+50% to your deposit** for free!"
 }
 
 def get_signal_keyboard():
@@ -125,7 +128,7 @@ async def cmd_start(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
 
-    # Проверка на админа
+    # 1. Проверка на главного админа
     if message.from_user.id in ADMIN_IDS:
         await message.answer(
             "Привет, Босс! Для тебя защита отключена. Держи актуальный торговый сигнал от системы:", 
@@ -135,6 +138,17 @@ async def cmd_start(message: types.Message):
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
 
+    # 2. Проверка на VIP-пользователя (друга) из белого списка
+    if message.from_user.id in VIP_IDS:
+        await message.answer(
+            "Добро пожаловать! Вам предоставлен закрытый VIP-доступ к торговой системе Team Master. Ловите сигнал:", 
+            reply_markup=get_signal_keyboard(), 
+            parse_mode="Markdown"
+        )
+        await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
+        return
+
+    # 3. Для всех остальных — обычное приветствие
     welcome_text = (
         "🤖 **TEAM MASTER GLOBAL BOT**\n\n"
         "📊 Добро пожаловать в систему **Team Master**!\n"
@@ -151,8 +165,8 @@ async def process_lang(callback: types.CallbackQuery):
         "🤖 **TEAM MASTER — HROM QUANTUM CORE v18.0**\n\n"
         "📊 **Добро пожаловать в программное ядро Команды Мастер!** Наш ИИ-алгоритм непрерывно сканирует более 40 валютных пар и OTC-активов, вычисляя идеальные точки входа на основе технического анализа. Средний винрейт составляет **89.4% – 95.8%**.\n\n"
         "📝 **ШАГ 1: РЕГИСТРАЦИЯ В СИСТЕМЕ**\n\n"
-        "Для того чтобы бот смог привязать ваш аккаунт к торговому ядру, вам необходимо создать новый личный кабинет на платформе брокера.\n\n"
-        "👉 **Отправьте ваш числовой ID прямо в этот чат** ответным сообщением для автоматической проверки."
+        "Для того чтобы бот смог привязать ваш аккаунт к торговому ядру, вам необходимо создать новый личный кабинет на платформе брокера по ссылке ниже.\n\n"
+        "👉 **Отправьте ваш числовой ID прямо в этот чат** ответным сообщением для автоматической проверки реферальной системы."
     )
     
     db = get_db()
@@ -177,8 +191,8 @@ async def handle_id_input(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
 
-    # Если пишет админ
-    if message.from_user.id in ADMIN_IDS:
+    # Если пишет админ или VIP — сразу выдаем сигнал
+    if message.from_user.id in ADMIN_IDS or message.from_user.id in VIP_IDS:
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
 
@@ -190,27 +204,48 @@ async def handle_id_input(message: types.Message):
     user_data = db["users"].get(user_key, {"lang": "ru", "chat_id": message.chat.id})
     lang = user_data.get("lang", "ru")
 
-    user_data["partner_id"] = user_input
-    user_data["status"] = "waiting_deposit"
-    db["users"][user_key] = user_data
-    save_db(db)
-
-    dep_markup = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 ПОПОЛНИТЬ БАЛАНС", url=PLATFORM_URL)],
-        [InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ АКТИВАЦИЮ", callback_data=f"check_dep:{user_input}")],
-        [InlineKeyboardButton(text="👨‍💻 SUPPORT", url=SUPPORT_URL)]
-    ])
+    is_ref_ok, is_deposit_ok = await check_pocket_api_full(user_input)
     
-    await message.answer(DEPOSIT_TEXTS.get(lang, DEPOSIT_TEXTS["ru"]), reply_markup=dep_markup, parse_mode="Markdown")
+    if not is_ref_ok:
+        reg_markup = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📈 ЗАРЕГИСТРИРОВАТЬСЯ ЗАНОВО", url=PLATFORM_URL)],
+            [InlineKeyboardButton(text="👨‍💻 SUPPORT", url=SUPPORT_URL)]
+        ])
+        await message.answer(
+            "❌ **Ошибка верификации аккаунта!**\n\nВаш ID не найден в нашей реферальной системе. Убедитесь, что вы создали новый аккаунт строго по ссылке из бота.\n\nЕсли вы считаете это ошибкой, обратитесь в поддержку.", 
+            reply_markup=reg_markup, 
+            parse_mode="Markdown"
+        )
+        return
+
+    user_data["partner_id"] = user_input
+    
+    if is_deposit_ok:
+        user_data["status"] = "approved"
+        save_db(db)
+        await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
+    else:
+        user_data["status"] = "waiting_deposit"
+        save_db(db)
+        dep_markup = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💳 ПОПОЛНИТЬ БАЛАНС", url=PLATFORM_URL)],
+            [InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ АКТИВАЦИЮ", callback_data=f"check_dep:{user_input}")],
+            [InlineKeyboardButton(text="👨‍💻 SUPPORT", url=SUPPORT_URL)]
+        ])
+        await message.answer(DEPOSIT_TEXTS.get(lang, DEPOSIT_TEXTS["ru"]), reply_markup=dep_markup, parse_mode="Markdown")
 
 @dp.callback_query(F.data.startswith("check_dep:"))
 async def process_check_deposit(callback: types.CallbackQuery):
     user_id = callback.data.split(":")[1]
     user_key = f"id_{callback.from_user.id}"
     
-    is_active = await check_pocket_api(user_id)
+    is_ref_ok, is_deposit_ok = await check_pocket_api_full(user_id)
     
-    if is_active:
+    if not is_ref_ok:
+        await callback.answer("❌ Ошибка: Ваш ID не найден в партнерской системе.", show_alert=True)
+        return
+        
+    if is_deposit_ok:
         db = get_db()
         db["users"][user_key]["status"] = "approved"
         save_db(db)
@@ -228,7 +263,7 @@ async def process_next_signal(callback: types.CallbackQuery):
     db = get_db()
     user_data = db["users"].get(user_key, {})
     
-    if callback.from_user.id in ADMIN_IDS or user_data.get("status") == "approved":
+    if callback.from_user.id in ADMIN_IDS or callback.from_user.id in VIP_IDS or user_data.get("status") == "approved":
         try: await callback.message.delete()
         except TelegramBadRequest: pass
         
