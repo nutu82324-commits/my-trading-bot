@@ -37,7 +37,7 @@ PHOTO_URL = "https://i.ibb.co/L1yZ6Gz/team-master-cover.jpg"
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# --- ФЕЙКОВЫЙ ВЕБ-СЕРВЕР ДЛЯ ОБХОДА ТАЙМАУТА RENDER ---
+# --- ФЕЙКОВЫЙ ВЕБ-СЕРВЕР ---
 async def handle(request):
     return web.Response(text="Bot is alive!")
 
@@ -91,7 +91,6 @@ DEPOSIT_TEXTS = {
     "en": "💳 **STEP 2: DEPOSIT ACTIVATION**\n\nYour ID was successfully found and verified!\n\nTo activate your AI account, top up your platform balance with **$20 or more**.\n\n🎁 Use promo code **WELCOME50** when depositing and get **+50% to your deposit** for free!"
 }
 
-# ПОЛНЫЙ СПИСОК ВСЕХ АКТИВОВ НА ПЛАТФОРМЕ
 ALL_PAIRS = [
     "EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)", 
     "AUD/USD (OTC)", "GBP/JPY (OTC)", "USD/CHF (OTC)", "NZD/USD (OTC)", 
@@ -137,80 +136,112 @@ def generate_signal_text() -> str:
         f"⚠️ *Входите в сделку строго по указанному времени. Соблюдайте риск-менеджмент!*"
     )
 
-# --- УЛЬТРА-НАДЕЖНАЯ АНИМАЦИЯ ---
-async def send_analyzing_process(chat_id: int, bot_instance: Bot):
-    p1, p2, p3 = random.sample(ALL_PAIRS, 3)
-    try:
-        # Отправляем сообщение и сразу получаем объект
-        msg = await bot_instance.send_message(
-            chat_id=chat_id,
-            text=f"🔄 **HROM QUANTUM CORE v18.0 запущено...**\n\n📡 Сканирование рынков...\n⌛ Анализ `{p1}`"
-        )
-        await asyncio.sleep(1.2)
-        # Редактируем с защитой
-        await bot_instance.edit_message_text(f"🔄 **АНАЛИЗ...**\n\n📊 Проверка RSI...\n⌛ `{p2}`", chat_id, msg.message_id)
-        await asyncio.sleep(1.2)
-        await bot_instance.edit_message_text(f"🔄 **ФОРМИРОВАНИЕ...**\n\n🎯 Поиск паттернов...\n⌛ `{p3}`", chat_id, msg.message_id)
-        await asyncio.sleep(1.0)
-        # Удаляем с защитой
-        await bot_instance.delete_message(chat_id, msg.message_id)
-    except:
-        # Если API выдаст любую ошибку, просто игнорируем, чтобы бот не падал
-        pass
+# --- ИСПРАВЛЕННЫЙ ПРОЦЕСС (НЕ ПАДАЕТ) ---
+async def send_analyzing_process(chat_id: int):
+    # Теперь бот просто отправляет статус, не пытаясь его менять или удалять
+    await bot.send_message(chat_id=chat_id, text="🔄 **HROM QUANTUM CORE v18.0: Идет сканирование рынков...**")
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     try: await message.delete()
-    except: pass
+    except TelegramBadRequest: pass
 
-    if message.from_user.id in ADMIN_IDS or message.from_user.id in VIP_IDS:
-        await send_analyzing_process(message.chat.id, bot)
+    if message.from_user.id in ADMIN_IDS:
+        await send_analyzing_process(message.chat.id)
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
 
-    await message.answer_photo(PHOTO_URL, caption="📈 **TEAM MASTER GLOBAL BOT v18.0** 📈\n\nВыберите язык:", reply_markup=get_lang_keyboard(), parse_mode="Markdown")
+    if message.from_user.id in VIP_IDS:
+        await send_analyzing_process(message.chat.id)
+        await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
+        return
+
+    info_text = (
+        "📈 **TEAM MASTER GLOBAL BOT v18.0** 📈\n\n"
+        "Добро пожаловать в автоматизированную систему генерации сигналов от **Команды Мастер**!\n\n"
+        "🤖 **Что умеет этот ИИ-бот:**\n"
+        "• Круглосуточно сканирует все рынки: валюты, криптовалюту, акции и сырьевые товары (включая OTC).\n"
+        "• Рассчитывает точки входа, используя технический анализ (RSI, Bollinger Bands, Скользящие средние).\n"
+        "• Помогает трейдерам торговать с математическим преимуществом на дистанции.\n\n"
+        "🌍 *Для запуска процесса синхронизации с сервером ИИ, пожалуйста, выберите ваш язык ниже:* / *Please select your language below to start:* "
+    )
+    
+    await message.answer_photo(
+        photo=PHOTO_URL,
+        caption=info_text,
+        reply_markup=get_lang_keyboard(),
+        parse_mode="Markdown"
+    )
 
 @dp.callback_query(F.data.startswith("lang:"))
 async def process_lang(callback: types.CallbackQuery):
+    selected_lang = callback.data.split(":")[1]
+    reg_text = (
+        "🤖 **TEAM MASTER — HROM QUANTUM CORE v18.0**\n\n"
+        "📊 **Добро пожаловать в программное ядро Команды Мастер!** \n\n"
+        "📝 **ШАГ 1: РЕГИСТРАЦИЯ В СИСТЕМЕ**\n\n"
+        "👉 **Отправьте ваш числовой ID прямо в этот чат** ответным сообщением."
+    )
     db = get_db()
-    db["users"][f"id_{callback.from_user.id}"] = {"lang": callback.data.split(":")[1], "status": "registering", "chat_id": callback.message.chat.id}
+    db["users"][f"id_{callback.from_user.id}"] = {"lang": selected_lang, "status": "registering", "chat_id": callback.message.chat.id}
     save_db(db)
     try: await callback.message.delete()
-    except: pass
-    await callback.message.answer("👉 **Отправьте ваш числовой ID прямо в этот чат**", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 РЕГИСТРАЦИЯ", url=PLATFORM_URL)]]), parse_mode="Markdown")
+    except TelegramBadRequest: pass
+    await callback.message.answer(reg_text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 РЕГИСТРАЦИЯ", url=PLATFORM_URL)]]), parse_mode="Markdown")
+    await callback.answer()
 
 @dp.message(F.text)
 async def handle_id_input(message: types.Message):
     user_input = message.text.strip()
-    if not user_input.isdigit(): return
+    user_key = f"id_{message.from_user.id}"
+    
     try: await message.delete()
-    except: pass
-    
-    is_ref, is_dep = await check_pocket_api_full(user_input)
-    if not is_ref:
-        await message.answer("❌ ID не найден. Зарегистрируйтесь по ссылке.")
+    except TelegramBadRequest: pass
+
+    if message.from_user.id in ADMIN_IDS or message.from_user.id in VIP_IDS:
+        await send_analyzing_process(message.chat.id)
+        await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
+
+    if not user_input.isdigit() or len(user_input) < 5:
+        await message.answer("❌ Неверный формат ID. Пожалуйста, отправьте только цифры вашего ID.")
+        return
+
+    db = get_db()
+    user_data = db["users"].get(user_key, {"lang": "ru", "chat_id": message.chat.id})
+    lang = user_data.get("lang", "ru")
+
+    is_ref_ok, is_deposit_ok = await check_pocket_api_full(user_input)
     
-    if is_dep:
-        await send_analyzing_process(message.chat.id, bot)
+    if not is_ref_ok:
+        await message.answer("❌ **Ошибка верификации!** Ваш ID не найден в системе.", parse_mode="Markdown")
+        return
+
+    user_data["partner_id"] = user_input
+    
+    if is_deposit_ok:
+        user_data["status"] = "approved"
+        save_db(db)
+        await send_analyzing_process(message.chat.id)
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
     else:
-        await message.answer("💳 Пополните баланс на $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💳 ПОПОЛНИТЬ", url=PLATFORM_URL)], [InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ", callback_data=f"check_dep:{user_input}")]]))
+        user_data["status"] = "waiting_deposit"
+        save_db(db)
+        await message.answer(DEPOSIT_TEXTS.get(lang, DEPOSIT_TEXTS["ru"]), reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💳 ПОПОЛНИТЬ БАЛАНС", url=PLATFORM_URL)], [InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ АКТИВАЦИЮ", callback_data=f"check_dep:{user_input}")]]), parse_mode="Markdown")
 
 @dp.callback_query(F.data.startswith("check_dep:"))
 async def process_check_deposit(callback: types.CallbackQuery):
-    _, is_dep = await check_pocket_api_full(callback.data.split(":")[1])
-    if is_dep:
-        try: await callback.message.delete()
-        except: pass
-        await send_analyzing_process(callback.message.chat.id, bot)
+    user_id = callback.data.split(":")[1]
+    is_ref_ok, is_deposit_ok = await check_pocket_api_full(user_id)
+    if is_deposit_ok:
+        await send_analyzing_process(callback.message.chat.id)
         await callback.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
     else:
         await callback.answer("❌ Депозит не найден.", show_alert=True)
 
 @dp.callback_query(F.data == "next_signal")
 async def process_next_signal(callback: types.CallbackQuery):
-    await send_analyzing_process(callback.message.chat.id, bot)
+    await send_analyzing_process(callback.message.chat.id)
     await callback.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
 
 async def main():
