@@ -16,14 +16,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("TeamMasterAuto")
 
 # --- КОНФИГУРАЦИЯ СЕТИ И ПАРТНЕРКИ ---
-BOT_TOKEN = "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
+BOT_TOKEN "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
 DB_FILE = "requests.json"
-ADMIN_ID = "6765689893"  # ЗАМЕНИ ЭТО ЧИСЛО НА СВОЙ РЕАЛЬНЫЙ TELEGRAM ID ДЛЯ ОБХОДА ПРОВЕРОК
+
+# СПИСОК АДМИНОВ (Кому разрешен полный доступ без регистрации и депозитов)
+# Просто добавь ID друга через запятую, например: [8761108877, 123456789]
+ADMIN_IDS = "6765689893"  
 
 # Данные партнерки
 PARTNER_ID = "1336904"
 API_TOKEN = "Zc4X9zu0EMrqbPuLy3tN"
-PLATFORM_URL = "https://u3.shortink.io/smart/RLQDltKf13Zlrj" 
+PLATFORM_URL = "https://u3.shortink.io/cabinet/demo-quick-high-low?utm_campaign=850173&utm_source=affiliate&utm_medium=sr&a=RLQDltKf13Zlrj&al=1771346&ac=smart-link&cid=960963&code=WELCOME50" 
 
 SUPPORT_URL = "https://t.me/andriddddd"       
 TELEGRAM_CHANNEL = "https://t.me/+uekq4TquqkM4Mzcy" 
@@ -41,7 +44,6 @@ async def start_webhook():
     app.router.add_get('/', handle)
     runner = web.AppRunner(app)
     await runner.setup()
-    # Читаем порт, который дает Render, или берем дефолтный 8000
     port = int(os.environ.get("PORT", 8000))
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
@@ -83,8 +85,8 @@ async def check_pocket_api(user_id: str) -> bool:
     return False
 
 DEPOSIT_TEXTS = {
-    "ru": "💳 **ШАГ 2: АКТИВАЦИЯ ДЕПОЗИТА**\n\nВаш ID успешно найден в системе!\n\nЧтобы алгоритм ИИ активировал ваш торговый аккаунт, пополните баланс на платформе на сумму **от $20**.\n\n🎁 Используйте промокод **MASTER50** при пополнении и получите **+50% к вашему депозиту** бесплатно!\n\n👉 После пополнения бот автоматически верифицирует ваш баланс в течение нескольких минут.",
-    "en": "💳 **STEP 2: DEPOSIT ACTIVATION**\n\nYour ID was successfully found!\n\nTo activate your AI account, top up your platform balance with **$20 or more**.\n\n🎁 Use promo code **MASTER50** when depositing and get **+50% to your deposit** for free!"
+    "ru": "💳 **ШАГ 2: АКТИВАЦИЯ ДЕПОЗИТА**\n\nВаш ID успешно найден в системе!\n\nЧтобы алгоритм ИИ активировал ваш торговый аккаунт, пополните баланс на платформе на сумму **от $20**.\n\n🎁 Используйте промокод **WELCOME50** при пополнении и получите **+50% к вашему депозиту** бесплатно!\n\n👉 После пополнения бот автоматически верифицирует ваш баланс в течение нескольких минут.",
+    "en": "💳 **STEP 2: DEPOSIT ACTIVATION**\n\nYour ID was successfully found!\n\nTo activate your AI account, top up your platform balance with **$20 or more**.\n\n🎁 Use promo code **WELCOME50** when depositing and get **+50% to your deposit** for free!"
 }
 
 def get_signal_keyboard():
@@ -102,12 +104,11 @@ def get_lang_keyboard():
         [InlineKeyboardButton(text="🇫🇷 Français", callback_data="lang:fr"), InlineKeyboardButton(text="🇪🇸 Español", callback_data="lang:es")]
     ])
 
-# Функция генерации красивого минутного сигнала
 def generate_signal_text() -> str:
     pairs = ["EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)", "AUD/USD (OTC)", "GBP/JPY (OTC)"]
     selected_pair = random.choice(pairs)
     direction = random.choice(["🟢 ВВЕРХ / CALL", "🔴 ВНИЗ / PUT"])
-    timeframe = random.choice([1, 3, 5])  # Исключительно минутные таймфреймы
+    timeframe = random.choice([1, 3, 5])  
     accuracy = round(random.uniform(91.4, 96.2), 1)
 
     return (
@@ -124,8 +125,8 @@ async def cmd_start(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
 
-    # Проверка на админа / создателя
-    if message.from_user.id == ADMIN_ID:
+    # Проверка: входит ли пользователь в список админов
+    if message.from_user.id in ADMIN_IDS:
         await message.answer(
             "Привет, Босс! Для тебя защита отключена. Держи актуальный торговый сигнал от системы:", 
             reply_markup=get_signal_keyboard(), 
@@ -176,8 +177,8 @@ async def handle_id_input(message: types.Message):
     try: await message.delete()
     except TelegramBadRequest: pass
 
-    # Если пишет админ — просто даем ему новый сигнал
-    if message.from_user.id == ADMIN_ID:
+    # Если пишет админ — просто выдаем сигнал
+    if message.from_user.id in ADMIN_IDS:
         await message.answer(generate_signal_text(), reply_markup=get_signal_keyboard(), parse_mode="Markdown")
         return
 
@@ -221,14 +222,13 @@ async def process_check_deposit(callback: types.CallbackQuery):
     else:
         await callback.answer("❌ Депозит от $20 пока не обнаружен. Пополните баланс или подождите 1-2 минуты.", show_alert=True)
 
-# Кнопка запроса следующего сигнала для верифицированных юзеров и админа
 @dp.callback_query(F.data == "next_signal")
 async def process_next_signal(callback: types.CallbackQuery):
     user_key = f"id_{callback.from_user.id}"
     db = get_db()
     user_data = db["users"].get(user_key, {})
     
-    if callback.from_user.id == ADMIN_ID or user_data.get("status") == "approved":
+    if callback.from_user.id in ADMIN_IDS or user_data.get("status") == "approved":
         try: await callback.message.delete()
         except TelegramBadRequest: pass
         
@@ -238,9 +238,7 @@ async def process_next_signal(callback: types.CallbackQuery):
     await callback.answer()
 
 async def main():
-    # Запускаем фоновый веб-сервер, чтобы Render не закрывал Web Service по таймауту
     asyncio.create_task(start_webhook())
-    
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
