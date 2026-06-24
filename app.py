@@ -93,23 +93,16 @@ DEPOSIT_TEXTS = {
 
 # ПОЛНЫЙ СПИСОК ВСЕХ АКТИВОВ НА ПЛАТФОРМЕ
 ALL_PAIRS = [
-    # Валютные пары (Обычные + OTC)
-    "EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)", 
+"EUR/USD (OTC)", "GBP/USD (OTC)", "USD/JPY (OTC)", "EUR/JPY (OTC)", 
     "AUD/USD (OTC)", "GBP/JPY (OTC)", "USD/CHF (OTC)", "NZD/USD (OTC)", 
     "USD/CAD (OTC)", "EUR/GBP (OTC)", "EUR/CHF (OTC)", "AUD/JPY (OTC)",
     "GBP/CAD (OTC)", "GBP/CHF (OTC)", "GBP/AUD (OTC)", "AUD/CAD (OTC)",
     "EUR/USD", "GBP/USD", "USD/JPY", "EUR/JPY", "AUD/USD", "USD/CAD",
-    
-    # Криптовалюта (Crypto)
     "BTC/USD (OTC)", "ETH/USD (OTC)", "LTC/USD (OTC)", "XRP/USD (OTC)",
     "TRX/USD (OTC)", "ADA/USD (OTC)", "BTC/USD", "ETH/USD", "SOL/USD",
-
-    # Акции компаний (Stocks)
     "Apple (OTC)", "Microsoft (OTC)", "Google (OTC)", "Amazon (OTC)", 
     "Tesla (OTC)", "Meta (OTC)", "NVIDIA (OTC)", "Netflix (OTC)", 
     "Apple", "Microsoft", "Tesla", "Google",
-
-    # Сырьевые товары (Commodities)
     "Gold (OTC)", "Silver (OTC)", "Crude Oil (OTC)", "Brent Oil (OTC)",
     "Gold", "Silver", "Crude Oil", "UKBrent"
 ]
