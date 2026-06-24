@@ -16,7 +16,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("TeamMasterAuto")
 
 # --- КОНФИГУРАЦИЯ СЕТИ И ПАРТНЕРКИ ---
-BOT_TOKEN "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
+BOT_TOKEN = "8761108877:AAGzMIeErZoGcVlLvd-yO-w7FZbIezCQ9SE"
 DB_FILE = "requests.json"
 
 # СПИСОК АДМИНОВ (Кому разрешен полный доступ без регистрации и депозитов)
@@ -32,7 +32,7 @@ SUPPORT_URL = "https://t.me/andriddddd"
 TELEGRAM_CHANNEL = "https://t.me/+uekq4TquqkM4Mzcy" 
 PHOTO_URL = "https://i.ibb.co/L1yZ6Gz/team-master-cover.jpg"
 
-bot = Bot(token=BOT_TOKEN)
+bot = "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
 dp = Dispatcher()
 
 # --- ФЕЙКОВЫЙ ВЕБ-СЕРВЕР ДЛЯ ОБХОДА ТАЙМАУТА RENDER ---
