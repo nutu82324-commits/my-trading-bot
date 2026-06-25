@@ -16,7 +16,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("TeamMasterPro")
 
-BOT_TOKEN = "8080518030:AAH3hdW1C7HF2k1AW8yBysUZ01-yvUV2DVg"
+BOT_TOKEN = "8643698714:AAEh3AdcOKgdhE5NJ4s7ebIAnsM6zGXdkLI"
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL") 
 PORT = int(os.environ.get("PORT", 10000))
 
