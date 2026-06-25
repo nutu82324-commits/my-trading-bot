@@ -4,15 +4,12 @@ import random
 import httpx
 import hashlib
 import logging
-import json
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, BotCommand
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# ==============================================================================
-# КОНФИГУРАЦИЯ СИСТЕМЫ TEAM MASTER - QUANTUM CORE
-# ==============================================================================
+# --- 1. КОНФИГУРАЦИЯ ---
 BOT_TOKEN = "8643698714:AAEh3AdcOKgdhE5NJ4s7ebIAnsM6zGXdkLI"
 PARTNER_ID = "1336904"
 API_TOKEN = "Zc4X9zu0EMrqbPuLy3tN"
@@ -20,9 +17,7 @@ PLATFORM_URL = "https://u3.shortink.io/cabinet/demo-quick-high-low?utm_campaign=
 SUPPORT_URL = "https://t.me/andriddddd"
 WHITE_LIST = [6765689893, 8273386412]
 
-# ==============================================================================
-# БАЗА АКТИВОВ (ВСЕ 40 ЕДИНИЦ)
-# ==============================================================================
+# --- 2. ПОЛНЫЙ СПИСОК ИЗ 40 АКТИВОВ ---
 ALL_PAIRS = [
     "AED/CNY OTC", "BHD/CNY OTC", "EUR/GBP OTC", "EUR/TRY OTC", "GBP/JPY OTC", 
     "MAD/USD OTC", "NGN/USD OTC", "NZD/USD OTC", "USD/CNH OTC", "USD/EGP OTC",
@@ -34,63 +29,47 @@ ALL_PAIRS = [
     "Apple OTC", "Pfizer Inc OTC", "Cisco OTC", "Tesla OTC", "Alibaba OTC", "Palantir Technologies OTC"
 ]
 
-# ==============================================================================
-# ИНИЦИАЛИЗАЦИЯ ЛОГГИРОВАНИЯ И СЕРВЕРА
-# ==============================================================================
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - [TEAM MASTER SYSTEM] - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger("QuantumCore")
+# --- 3. НАСТРОЙКИ СИСТЕМЫ ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - [CORE SYSTEM] - %(message)s')
+logger = logging.getLogger("QuantumMasterCore")
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# ==============================================================================
-# КЛАСС КВАНТОВОГО АНАЛИЗАТОРА (МАТЕМАТИЧЕСКАЯ МОДЕЛЬ)
-# ==============================================================================
-class QuantumEngine:
+# --- 4. КВАНТОВЫЙ ДВИЖОК АНАЛИЗА ---
+class QuantumAnalyzer:
     def __init__(self):
-        self.trend_storage = {asset: 0.0 for asset in ALL_PAIRS}
+        self.market_memory = {asset: 0.0 for asset in ALL_PAIRS}
 
-    def compute_signal(self, asset):
-        # Имитация рыночного шума и тренда
-        self.trend_storage[asset] += random.uniform(-1.8, 1.8)
+    def analyze_market(self, asset):
+        # Алгоритм имитации рыночного импульса
+        self.market_memory[asset] += random.uniform(-1.8, 1.8)
         
-        # Логика анализа
-        if self.trend_storage[asset] > 3.0:
+        # Анализ данных
+        if self.market_memory[asset] > 3.0:
             return "📉 🔴 SELL / ВНИЗ", random.randint(90, 99)
-        elif self.trend_storage[asset] < -3.0:
+        elif self.market_memory[asset] < -3.0:
             return "📈 🟢 BUY / ВВЕРХ", random.randint(90, 99)
         else:
-            return random.choice(["📈 🟢 BUY / ВВЕРХ", "📉 🔴 SELL / ВНИЗ"]), random.randint(70, 85)
+            return random.choice(["📈 🟢 BUY / ВВЕРХ", "📉 🔴 SELL / ВНИЗ"]), random.randint(75, 88)
 
-engine = QuantumEngine()
+engine = QuantumAnalyzer()
 
-# ==============================================================================
-# ФУНКЦИИ ВЕРИФИКАЦИИ И ДОСТУПА
-# ==============================================================================
+# --- 5. ВЕРИФИКАЦИЯ ПОЛЬЗОВАТЕЛЯ ---
 async def verify_user(uid: str):
-    logger.info(f"Проверка доступа для ID: {uid}")
-    if int(uid) in WHITE_LIST:
-        return True, True
-    
+    if int(uid) in WHITE_LIST: return True, True
     hash_str = hashlib.md5(f"{uid}:{PARTNER_ID}:{API_TOKEN}".encode()).hexdigest()
     url = f"https://affiliate.pocketoption.com/api/user-info/{uid}/{PARTNER_ID}/{hash_str}"
-    
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(url)
             if resp.status_code == 200:
                 data = resp.json()
                 return data.get("status") == "success", float(data.get("deposit", 0)) >= 20
-    except Exception as e:
-        logger.error(f"API Error: {e}")
+    except: pass
     return False, False
 
-# ==============================================================================
-# ОБРАБОТЧИКИ СООБЩЕНИЙ И КОМАНД
-# ==============================================================================
+# --- 6. ИНТЕРФЕЙС И КЛАВИАТУРЫ ---
 def get_lang_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🇷🇺 RU", callback_data="lang:ru"), InlineKeyboardButton(text="🇺🇸 EN", callback_data="lang:en")],
@@ -98,40 +77,53 @@ def get_lang_kb():
         [InlineKeyboardButton(text="🇪🇸 ES", callback_data="lang:es"), InlineKeyboardButton(text="🇫🇷 FR", callback_data="lang:fr")]
     ])
 
-@dp.message(Command("start"))
-async def cmd_start(m: types.Message):
-    await m.answer("👑 **TEAM MASTER: QUANTUM CORE**\n\nСистема инициализирована. Выберите язык:", reply_markup=get_lang_kb())
-
-@dp.callback_query(F.data.startswith("lang:"))
-async def select_lang(c: types.CallbackQuery):
-    await c.message.answer("📝 **ШАГ 1:** Зарегистрируйтесь на платформе и пришлите ID:", 
-                           reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 ПЛАТФОРМА", url=PLATFORM_URL)]]))
-
-@dp.message(F.text.isdigit())
-async def handle_id(m: types.Message):
-    reg, dep = await verify_user(m.text)
-    if not reg: await m.answer("❌ ID не найден.")
-    elif not dep: await m.answer("💳 Пополните баланс.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ", callback_data=f"check:{m.text}")]]))
-    else: await m.answer("✅ Доступ активирован!", reply_markup=get_main_kb())
-
-@dp.callback_query(F.data.startswith("check:"))
-async def check_act(c: types.CallbackQuery):
-    _, dep = await verify_user(c.data.split(":")[1])
-    if dep: await c.message.answer("✅ Доступ открыт!", reply_markup=get_main_kb())
-    else: await c.answer("❌ Депозит не найден.")
-
 def get_main_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📡 ПОЛУЧИТЬ КВАНТОВЫЙ СИГНАЛ", callback_data="get_sig")],
         [InlineKeyboardButton(text="👨‍💻 ПОДДЕРЖКА", url=SUPPORT_URL)]
     ])
 
+# --- 7. ОБРАБОТЧИКИ СОБЫТИЙ ---
+@dp.message(Command("start"))
+async def cmd_start(m: types.Message):
+    await m.answer(
+        "👑 **TEAM MASTER: QUANTUM CORE SYSTEM v5.0**\n\n"
+        "Система инициализирована. Мы анализируем рыночные данные 24/7 для поиска оптимальных точек входа.\n\n"
+        "🌐 **Выберите предпочтительный язык интерфейса:**\n"
+        "Select language / Выберите язык / Оберіть мову / Wählen Sie eine Sprache / Seleccione el idioma / Choisissez votre langue",
+        reply_markup=get_lang_kb()
+    )
+
+@dp.callback_query(F.data.startswith("lang:"))
+async def select_lang(c: types.CallbackQuery):
+    await c.message.edit_text(
+        "📝 **ШАГ 1: РЕГИСТРАЦИЯ В СИСТЕМЕ**\n\n"
+        "Для обеспечения синхронизации вашего торгового аккаунта с нашим квантовым ядром, вы обязаны пройти регистрацию по партнерской ссылке.\n\n"
+        "После завершения регистрации, пожалуйста, скопируйте ваш ID и отправьте его в этот чат.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📈 ПЕРЕЙТИ НА ПЛАТФОРМУ", url=PLATFORM_URL)]
+        ])
+    )
+
+@dp.message(F.text.isdigit())
+async def handle_id(m: types.Message):
+    reg, dep = await verify_user(m.text)
+    if not reg: await m.answer("❌ ID не найден.")
+    elif not dep: await m.answer("💳 Пополните счет от $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ", callback_data=f"check:{m.text}")]]))
+    else: await m.answer("✅ Доступ активен!", reply_markup=get_main_kb())
+
+@dp.callback_query(F.data.startswith("check:"))
+async def check_act(c: types.CallbackQuery):
+    _, dep = await verify_user(c.data.split(":")[1])
+    if dep: await c.message.edit_text("✅ Доступ активирован!", reply_markup=get_main_kb())
+    else: await c.answer("❌ Депозит не найден.", show_alert=True)
+
 @dp.callback_query(F.data == "get_sig")
 async def process_sig(c: types.CallbackQuery):
     msg = await c.message.answer("🔄 **Запуск глубокого анализа...**")
     await asyncio.sleep(2)
     asset = random.choice(ALL_PAIRS)
-    direction, conf = engine.compute_signal(asset)
+    direction, conf = engine.analyze_market(asset)
     
     signal = (
         f"📡 **СИГНАЛ TEAM MASTER**\n\n"
@@ -144,9 +136,7 @@ async def process_sig(c: types.CallbackQuery):
     try: await msg.edit_text(signal, reply_markup=get_main_kb())
     except: await c.message.answer(signal, reply_markup=get_main_kb())
 
-# ==============================================================================
-# ЗАПУСК И СЕРВЕРНАЯ ЧАСТЬ
-# ==============================================================================
+# --- 8. ЗАПУСК И СЕРВЕР ---
 async def web_server():
     runner = web.AppRunner(web.Application())
     await runner.setup()
