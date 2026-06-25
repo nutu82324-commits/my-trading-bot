@@ -4,6 +4,7 @@ import random
 import httpx
 import hashlib
 import logging
+from datetime import datetime, timedelta
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -17,46 +18,37 @@ PLATFORM_URL = "https://u3.shortink.io/cabinet/demo-quick-high-low?utm_campaign=
 SUPPORT_URL = "https://t.me/andriddddd"
 WHITE_LIST = [6765689893, 8273386412]
 
-# --- 2. БАЗА АКТИВОВ ---
+# --- 2. АКТИВЫ ---
 ALL_PAIRS = [
-    "AED/CNY OTC", "BHD/CNY OTC", "EUR/GBP OTC", "EUR/TRY OTC", "GBP/JPY OTC", 
-    "MAD/USD OTC", "NGN/USD OTC", "NZD/USD OTC", "USD/CNH OTC", "USD/EGP OTC",
-    "USD/PHP OTC", "USD/PKR OTC", "USD/SGD OTC", "USD/THB OTC", "USD/VND OTC",
-    "YER/USD OTC", "ZAR/USD OTC", "USD/CHF OTC", "EUR/USD", "USD/DZD OTC",
-    "Cardano OTC", "Bitcoin ETF OTC", "BNB OTC", "Polkadot OTC", "Litecoin OTC",
-    "Polygon OTC", "Solana OTC", "TRON OTC", "Chainlink OTC", "Bitcoin OTC",
-    "American Express OTC", "FACEBOOK INC OTC", "Intel OTC", "VISA OTC",
-    "Apple OTC", "Pfizer Inc OTC", "Cisco OTC", "Tesla OTC", "Alibaba OTC", "Palantir Technologies OTC"
+    "GBP/USD OTC", "EUR/USD OTC", "USD/JPY OTC", "AUD/USD OTC", "USD/CAD OTC",
+    "EUR/GBP OTC", "EUR/JPY OTC", "USD/CHF OTC", "Bitcoin OTC", "Ethereum OTC",
+    "AED/CNY OTC", "BHD/CNY OTC", "EUR/TRY OTC", "GBP/JPY OTC", "MAD/USD OTC",
+    "NGN/USD OTC", "NZD/USD OTC", "USD/CNH OTC", "USD/EGP OTC", "USD/PHP OTC",
+    "USD/PKR OTC", "USD/SGD OTC", "USD/THB OTC", "USD/VND OTC", "YER/USD OTC",
+    "ZAR/USD OTC", "USD/DZD OTC", "Cardano OTC", "Bitcoin ETF OTC", "BNB OTC",
+    "Polkadot OTC", "Litecoin OTC", "Polygon OTC", "Solana OTC", "TRON OTC",
+    "Chainlink OTC", "American Express OTC", "Intel OTC", "VISA OTC", "Tesla OTC"
 ]
 
-# --- 3. НАСТРОЙКИ ---
+# --- 3. ИНИЦИАЛИЗАЦИЯ ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [CORE] - %(message)s')
-logger = logging.getLogger("QuantumMasterCore")
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# --- 4. КВАНТОВЫЙ ДВИЖОК ---
+# --- 4. ЯДРО АНАЛИЗА ---
 class QuantumAnalyzer:
-    def __init__(self):
-        self.market_memory = {asset: 0.0 for asset in ALL_PAIRS}
-
-    def analyze_market(self, asset):
-        self.market_memory[asset] += random.uniform(-1.8, 1.8)
+    def analyze(self):
+        asset = random.choice(ALL_PAIRS)
+        direction = "📈 🟢 BUY / ВВЕРХ" if random.random() > 0.5 else "📉 🔴 SELL / ВНИЗ"
+        tf = random.choice(["M1", "M3", "M5"])
         
-        # Генерация таймфрейма (свечи)
-        timeframes = ["M1", "M5", "M15", "M30"]
-        tf = random.choice(timeframes)
+        # ЭКСПИРАЦИЯ строго от 2 до 6 минут
+        duration = random.randint(2, 6)
         
-        # Генерация экспирации (от 5 сек до 300 сек)
-        exp_sec = random.randint(5, 300)
-        exp_str = f"{exp_sec // 60} мин {exp_sec % 60} сек" if exp_sec >= 60 else f"{exp_sec} сек"
-        
-        if self.market_memory[asset] > 3.0:
-            return "📉 🔴 SELL / ВНИЗ", random.randint(90, 99), tf, exp_str
-        elif self.market_memory[asset] < -3.0:
-            return "📈 🟢 BUY / ВВЕРХ", random.randint(90, 99), tf, exp_str
-        else:
-            return random.choice(["📈 🟢 BUY / ВВЕРХ", "📉 🔴 SELL / ВНИЗ"]), random.randint(75, 88), tf, exp_str
+        finish_time = (datetime.now() + timedelta(minutes=duration)).strftime("%H:%M:%S")
+        payout = random.choice(["82%", "87%", "92%"])
+        confidence = random.randint(85, 99)
+        return asset, direction, tf, duration, finish_time, payout, confidence
 
 engine = QuantumAnalyzer()
 
@@ -66,64 +58,66 @@ async def verify_user(uid: str):
     hash_str = hashlib.md5(f"{uid}:{PARTNER_ID}:{API_TOKEN}".encode()).hexdigest()
     url = f"https://affiliate.pocketoption.com/api/user-info/{uid}/{PARTNER_ID}/{hash_str}"
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(url)
-            if resp.status_code == 200:
-                data = resp.json()
-                return data.get("status") == "success", float(data.get("deposit", 0)) >= 20
-    except: pass
-    return False, False
+            return resp.json().get("status") == "success", float(resp.json().get("deposit", 0)) >= 20
+    except: return False, False
 
-# --- 6. ОБРАБОТЧИКИ ---
+# --- 6. ХЕНДЛЕРЫ ---
 @dp.message(Command("start"))
-async def cmd_start(m: types.Message):
-    await m.answer(
-        "👑 **TEAM MASTER: QUANTUM CORE SYSTEM v5.5**\n\n"
-        "Система инициализирована. Выберите язык:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🇷🇺 RU", callback_data="lang:ru"), InlineKeyboardButton(text="🇺🇸 EN", callback_data="lang:en")],
-            [InlineKeyboardButton(text="🇺🇦 UA", callback_data="lang:ua"), InlineKeyboardButton(text="🇩🇪 DE", callback_data="lang:de")],
-            [InlineKeyboardButton(text="🇪🇸 ES", callback_data="lang:es"), InlineKeyboardButton(text="🇫🇷 FR", callback_data="lang:fr")]
-        ])
+async def start(m: types.Message):
+    text = (
+        "👑 **TEAM MASTER: QUANTUM CORE SYSTEM v4.5**\n\n"
+        "Система инициализирована. Мы анализируем рыночные данные 24/7 для поиска оптимальных точек входа.\n\n"
+        "🌐 **Выберите предпочтительный язык интерфейса:**"
     )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇷🇺 RU", callback_data="lang:ru"), InlineKeyboardButton(text="🇺🇸 EN", callback_data="lang:en")]
+    ])
+    await m.answer(text, reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("lang:"))
 async def select_lang(c: types.CallbackQuery):
     await c.message.edit_text(
-        "📝 **ШАГ 1: РЕГИСТРАЦИЯ**\n\nПришлите ID после регистрации:",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 ПЕРЕЙТИ НА ПЛАТФОРМУ", url=PLATFORM_URL)]])
+        "📝 **ШАГ 1: РЕГИСТРАЦИЯ В СИСТЕМЕ**\n\n"
+        "Для обеспечения синхронизации вашего торгового аккаунта с нашим квантовым ядром, вы обязаны пройти регистрацию по партнерской ссылке.\n\n"
+        "После завершения регистрации, пожалуйста, скопируйте ваш ID и отправьте его в этот чат.",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📈 ПЕРЕЙТИ НА ПЛАТФОРМУ", url=PLATFORM_URL)]
+        ])
     )
 
 @dp.message(F.text.isdigit())
-async def handle_id(m: types.Message):
+async def auth(m: types.Message):
     reg, dep = await verify_user(m.text)
     if not reg: await m.answer("❌ ID не найден.")
-    elif not dep: await m.answer("💳 Пополните от $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 ПРОВЕРЕТЬ", callback_data=f"check:{m.text}")]]))
+    elif not dep: await m.answer("💳 Пополните счет от $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ", callback_data=f"check:{m.text}")]]))
     else: await m.answer("✅ Доступ активен!", reply_markup=get_main_kb())
 
 @dp.callback_query(F.data == "get_sig")
-async def process_sig(c: types.CallbackQuery):
-    msg = await c.message.answer("🔄 **Анализ данных...**")
-    await asyncio.sleep(2)
-    asset = random.choice(ALL_PAIRS)
-    direction, conf, tf, exp = engine.analyze_market(asset)
-    
+async def get_sig(c: types.CallbackQuery):
+    asset, direction, tf, duration, finish, payout, conf = engine.analyze()
+    # Твой формат сигнала
     signal = (
         f"📡 **СИГНАЛ TEAM MASTER**\n\n"
         f"🔹 **Актив:** `{asset}`\n"
-        f"📊 **Таймфрейм:** `{tf}`\n"
         f"⚡️ **Направление:** {direction}\n"
-        f"⏱ **Экспирация:** `{exp}`\n"
-        f"🔥 **Уверенность:** `{conf}%`\n\n"
+        f"📊 **ТФ:** `{tf}`\n"
+        f"⏱ **Экспирация:** `{duration} мин`\n"
+        f"⏳ **До:** `{finish}`\n"
+        f"🎯 **Выплата:** `{payout}`\n"
+        f"🔥 **Индекс уверенности:** `{conf}%`\n\n"
         "⚠️ *Соблюдайте риски.*"
     )
-    try: await msg.edit_text(signal, reply_markup=get_main_kb())
-    except: await c.message.answer(signal, reply_markup=get_main_kb())
+    await c.message.answer(signal, reply_markup=get_main_kb())
 
 def get_main_kb():
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📡 ПОЛУЧИТЬ КВАНТОВЫЙ СИГНАЛ", callback_data="get_sig")]])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📡 ПОЛУЧИТЬ КВАНТОВЫЙ СИГНАЛ", callback_data="get_sig")],
+        [InlineKeyboardButton(text="👨‍💻 ПОДДЕРЖКА", url=SUPPORT_URL)]
+    ])
 
-# --- 7. СЕРВЕР ---
+# --- 7. ЗАПУСК ---
 async def web_server():
     runner = web.AppRunner(web.Application())
     await runner.setup()
@@ -133,5 +127,4 @@ async def main():
     await asyncio.gather(web_server(), dp.start_polling(bot))
 
 if __name__ == "__main__":
-    try: asyncio.run(main())
-    except: pass
+    asyncio.run(main())
