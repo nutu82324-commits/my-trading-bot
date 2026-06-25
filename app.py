@@ -11,19 +11,16 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.exceptions import TelegramBadRequest
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("TeamMasterPro")
-
+# --- КОНФИГУРАЦИЯ ---
 BOT_TOKEN = "8643698714:AAEh3AdcOKgdhE5NJ4s7ebIAnsM6zGXdkLI"
+DB_FILE = "users_db.json"
 PARTNER_ID = "1336904"
 API_TOKEN = "Zc4X9zu0EMrqbPuLy3tN"
 PLATFORM_URL = "https://u3.shortink.io/cabinet/demo-quick-high-low?utm_campaign=850173&utm_source=affiliate&utm_medium=sr&a=RLQDltKf13Zlrj&al=1771346&ac=smart-link&cid=960963&code=WELCOME50"
+SUPPORT_URL = "https://t.me/andriddddd"
+CHANNEL_URL = "https://t.me/+uekq4TquqkM4Mzcy"
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
-
-# Полный список активов из твоих скриншотов
+# --- АКТИВЫ ---
 ALL_PAIRS = [
     "AED/CNY OTC", "BHD/CNY OTC", "EUR/GBP OTC", "EUR/TRY OTC", "GBP/JPY OTC", 
     "MAD/USD OTC", "NGN/USD OTC", "NZD/USD OTC", "USD/CNH OTC", "USD/EGP OTC",
@@ -36,37 +33,78 @@ ALL_PAIRS = [
     "Palantir Technologies OTC"
 ]
 
-async def send_analyzing_process(chat_id: int):
-    # Рандомная задержка (5-60 сек), как ты просил
-    wait = random.uniform(5, 60) / 3
-    msg = await bot.send_message(chat_id, "🔄 **Анализ ликвидности...**")
-    await asyncio.sleep(wait)
-    await msg.edit_text("🔄 **ИИ-АНАЛИЗ РЫНКА...**")
-    await asyncio.sleep(wait)
-    await msg.edit_text("🔄 **ФОРМИРОВАНИЕ ТОЧКИ ВХОДА...**")
-    await asyncio.sleep(wait)
-    try: await msg.delete()
-    except: pass
+# --- БАЗА И API ---
+def get_db():
+    if not os.path.exists(DB_FILE): return {}
+    with open(DB_FILE, "r") as f: return json.load(f)
 
+def save_db(data):
+    with open(DB_FILE, "w") as f: json.dump(data, f, indent=4)
+
+async def check_user(user_id: str):
+    hash_str = hashlib.md5(f"{user_id}:{PARTNER_ID}:{API_TOKEN}".encode()).hexdigest()
+    url = f"https://affiliate.pocketoption.com/api/user-info/{user_id}/{PARTNER_ID}/{hash_str}"
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("status") == "success", float(data.get("deposit", 0)) >= 20
+        except: return False, False
+    return False, False
+
+# --- ИНТЕРФЕЙС ---
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
+
+def get_main_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📈 Платформа", url=PLATFORM_URL), InlineKeyboardButton(text="📢 Канал", url=CHANNEL_URL)],
+        [InlineKeyboardButton(text="👨‍💻 Поддержка", url=SUPPORT_URL)],
+        [InlineKeyboardButton(text="🔄 Получить сигнал", callback_data="get_sig")]
+    ])
+
+# --- ОБРАБОТЧИКИ ---
 @dp.message(Command("start"))
 async def start(m: types.Message):
-    await m.answer("Пришли свой ID для активации доступа:")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru"), InlineKeyboardButton(text="🇺🇸 English", callback_data="lang:en")]
+    ])
+    await m.answer("👋 Добро пожаловать в TEAM MASTER!\nВыберите язык:", reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("lang:"))
+async def select_lang(c: types.CallbackQuery):
+    await c.message.answer("📝 Для активации пришлите ваш ID (число):")
+    await c.answer()
 
 @dp.message(F.text.isdigit())
-async def handle_id(m: types.Message):
-    await send_analyzing_process(m.chat.id)
-    text = (
-        f"🚀 **TEAM MASTER — СИГНАЛ**\n\n"
-        f"📊 **Актив:** `{random.choice(ALL_PAIRS)}`\n"
-        f"⏳ **Экспирация:** `{random.randint(2, 5)} МИН`\n"
-        f"📈 **Прогноз:** {random.choice(['🟢 ВВЕРХ', '🔴 ВНИЗ'])}\n"
-        f"🎯 **Точность:** `{round(random.uniform(92, 98), 1)}%`"
-    )
-    await m.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📈 ПЛАТФОРМА", url=PLATFORM_URL)]
-    ]))
+async def id_check(m: types.Message):
+    is_reg, is_dep = await check_user(m.text)
+    if not is_reg:
+        await m.answer("❌ ID не найден. Зарегистрируйтесь по ссылке ниже:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Ссылка", url=PLATFORM_URL)]]))
+    elif not is_dep:
+        await m.answer("💳 Аккаунт найден. Для доступа пополните баланс от $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Проверить депозит", callback_data=f"check:{m.text}")]]))
+    else:
+        await m.answer("✅ Доступ активирован!", reply_markup=get_main_kb())
 
-# Минималистичный веб-сервер для Render (не падает)
+@dp.callback_query(F.data.startswith("check:"))
+async def check_dep(c: types.CallbackQuery):
+    _, is_dep = await check_user(c.data.split(":")[1])
+    if is_dep: await c.message.answer("✅ Депозит найден! Вы в системе.", reply_markup=get_main_kb())
+    else: await c.answer("❌ Депозит не найден.", show_alert=True)
+
+@dp.callback_query(F.data == "get_sig")
+async def send_signal(c: types.CallbackQuery):
+    msg = await c.message.answer("🔄 Анализирую рынок...")
+    await asyncio.sleep(random.uniform(5, 10))
+    sig = (f"🚀 **TEAM MASTER СИГНАЛ**\n\n"
+           f"📊 Актив: `{random.choice(ALL_PAIRS)}`\n"
+           f"⏳ Экспирация: `{random.randint(2, 5)} МИН`\n"
+           f"📈 Прогноз: {random.choice(['🟢 ВВЕРХ', '🔴 ВНИЗ'])}\n"
+           f"🎯 Точность: `{round(random.uniform(93, 97), 1)}%`")
+    await msg.edit_text(sig, reply_markup=get_main_kb())
+
+# --- ЗАПУСК ---
 async def web_server():
     runner = web.AppRunner(web.Application())
     await runner.setup()
