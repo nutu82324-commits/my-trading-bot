@@ -5,14 +5,13 @@ import asyncio
 import hashlib
 import random
 import httpx
-from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger("TeamMasterAuto")
+logger = logging.getLogger("TeamMaster")
 
 # --- КОНФИГУРАЦИЯ ---
 BOT_TOKEN = "8860569012:AAHIV9WLewsv_cKHFYAo6vcxvCIb-uCVvI8"
@@ -29,7 +28,7 @@ PHOTO_URL = "https://i.ibb.co/L1yZ6Gz/team-master-cover.jpg"
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# --- ПОЛНЫЙ СПИСОК АКТИВОВ ---
+# --- ПОЛНЫЙ СПИСОК АКТИВОВ ИЗ ТВОЕГО ЗАПРОСА ---
 ALL_PAIRS = [
     "EUR/USD OTC", "GBP/USD OTC", "AUD/USD OTC", "USD/JPY OTC", "USD/CHF OTC", 
     "USD/CAD OTC", "EUR/GBP OTC", "EUR/JPY OTC", "GBP/JPY OTC", "CHF/JPY OTC", 
@@ -40,17 +39,6 @@ ALL_PAIRS = [
     "FACEBOOK INC OTC", "Intel OTC", "Johnson & Johnson OTC",
     "Gold OTC", "Brent Oil OTC", "WTI Crude Oil OTC", "Silver OTC", "Natural Gas OTC"
 ]
-
-# --- WEB-СЕРВЕР ---
-async def handle(request): return web.Response(text="Bot is alive!")
-
-async def start_webhook():
-    app = web.Application()
-    app.router.add_get('/', handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    port = int(os.environ.get("PORT", 8000))
-    await web.TCPSite(runner, '0.0.0.0', port).start()
 
 # --- БАЗА ДАННЫХ ---
 def get_db():
@@ -63,8 +51,8 @@ def save_db(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
-# --- ПРОВЕРКА API ---
-async def check_pocket_api_full(user_id: str) -> tuple[bool, bool]:
+# --- ПРОВЕРКА ЧЕРЕЗ API ---
+async def check_pocket_api(user_id: str):
     hash_str = hashlib.md5(f"{user_id}:{PARTNER_ID}:{API_TOKEN}".encode()).hexdigest()
     url = f"https://affiliate.pocketoption.com/api/user-info/{user_id}/{PARTNER_ID}/{hash_str}"
     async with httpx.AsyncClient() as client:
@@ -76,44 +64,48 @@ async def check_pocket_api_full(user_id: str) -> tuple[bool, bool]:
         except: pass
     return False, False
 
-# --- КНОПКИ И ГЕНЕРАЦИЯ ---
+# --- ИНТЕРФЕЙС ---
 def get_signal_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📈 ОТКРЫТЬ POCKET OPTION", url=PLATFORM_URL)],
-        [InlineKeyboardButton(text="📢 НАШ ТЕЛЕГРАМ КАНАЛ", url=TELEGRAM_CHANNEL)],
+        [InlineKeyboardButton(text="📢 ТЕЛЕГРАМ КАНАЛ", url=TELEGRAM_CHANNEL)],
         [InlineKeyboardButton(text="👨‍💻 SUPPORT", url=SUPPORT_URL)],
         [InlineKeyboardButton(text="🔄 СЛЕДУЮЩИЙ СИГНАЛ", callback_data="next_sig")]
     ])
 
-def generate_signal_text():
-    return (f"🚀 **TEAM MASTER — СИГНАЛ СФОРМИРОВАН** 🚀\n\n"
+def get_signal_message():
+    return (f"🚀 **TEAM MASTER — СИГНАЛ** 🚀\n\n"
             f"📊 Актив: `{random.choice(ALL_PAIRS)}`\n"
             f"📈 Направление: {random.choice(['🟢 ВВЕРХ / CALL', '🔴 ВНИЗ / PUT'])}\n"
             f"🎯 Точность: `{round(random.uniform(91.4, 96.2), 1)}%`")
 
 # --- ОБРАБОТЧИКИ ---
 @dp.message(Command("start"))
-async def start(m: types.Message):
-    await m.answer_photo(PHOTO_URL, caption="📈 **TEAM MASTER GLOBAL BOT v18.0**\n\nОтправьте ваш ID:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 РЕГИСТРАЦИЯ", url=PLATFORM_URL)]]))
+async def start_cmd(message: types.Message):
+    await message.answer_photo(
+        photo=PHOTO_URL, 
+        caption="📈 **TEAM MASTER v18.0**\n\nДобро пожаловать! Отправьте ваш ID для проверки в системе:", 
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 РЕГИСТРАЦИЯ", url=PLATFORM_URL)]])
+    )
 
 @dp.message(F.text)
-async def handle_id(m: types.Message):
-    if not m.text.isdigit(): return
-    ref, dep = await check_pocket_api_full(m.text)
-    if not ref: await m.answer("❌ ID не найден."); return
+async def id_input(message: types.Message):
+    if not message.text.isdigit(): return
+    ref, dep = await check_pocket_api(message.text)
+    if not ref: await message.answer("❌ ID не найден."); return
     
-    if dep or m.from_user.id in ADMIN_IDS + VIP_IDS:
-        await m.answer(generate_signal_text(), reply_markup=get_signal_keyboard())
+    if dep or message.from_user.id in ADMIN_IDS + VIP_IDS:
+        await message.answer(get_signal_message(), reply_markup=get_signal_keyboard())
     else:
-        await m.answer("💳 Пополните баланс на $20 для доступа.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💳 ПОПОЛНИТЬ", url=PLATFORM_URL)]]))
+        await message.answer("💳 Пополните баланс на $20 для получения сигналов.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💳 ПОПОЛНИТЬ", url=PLATFORM_URL)]]))
 
 @dp.callback_query(F.data == "next_sig")
-async def next_sig(c: types.CallbackQuery):
-    await c.message.answer(generate_signal_text(), reply_markup=get_signal_keyboard())
-    await c.answer()
+async def next_sig_query(callback: types.CallbackQuery):
+    await callback.message.answer(get_signal_message(), reply_markup=get_signal_keyboard())
+    await callback.answer()
 
 async def main():
-    asyncio.create_task(start_webhook())
+    logger.info("Бот запущен и готов к работе.")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
