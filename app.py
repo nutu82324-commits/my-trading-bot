@@ -10,7 +10,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# --- 1. КОНФИГУРАЦИЯ ---
+# --- КОНФИГУРАЦИЯ ---
 BOT_TOKEN = "8643698714:AAEh3AdcOKgdhE5NJ4s7ebIAnsM6zGXdkLI"
 PARTNER_ID = "1336904"
 API_TOKEN = "Zc4X9zu0EMrqbPuLy3tN"
@@ -18,7 +18,7 @@ PLATFORM_URL = "https://u3.shortink.io/cabinet/demo-quick-high-low?utm_campaign=
 SUPPORT_URL = "https://t.me/andriddddd"
 WHITE_LIST = [6765689893, 8273386412]
 
-# --- 2. АКТИВЫ ---
+# --- АКТИВЫ ---
 ALL_PAIRS = [
     "GBP/USD OTC", "EUR/USD OTC", "USD/JPY OTC", "AUD/USD OTC", "USD/CAD OTC",
     "EUR/GBP OTC", "EUR/JPY OTC", "USD/CHF OTC", "Bitcoin OTC", "Ethereum OTC",
@@ -30,19 +30,18 @@ ALL_PAIRS = [
     "Chainlink OTC", "American Express OTC", "Intel OTC", "VISA OTC", "Tesla OTC"
 ]
 
-# --- 3. ИНИЦИАЛИЗАЦИЯ ---
+# --- ИНИЦИАЛИЗАЦИЯ ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - [CORE] - %(message)s')
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# --- 4. ЯДРО АНАЛИЗА ---
+# --- ЛОГИКА АНАЛИЗА ---
 class QuantumAnalyzer:
     def analyze(self):
         asset = random.choice(ALL_PAIRS)
-        direction = "📈 🟢 BUY" if random.random() > 0.5 else "📉 🔴 SELL"
+        direction = "📈 🟢 BUY / ВВЕРХ" if random.random() > 0.5 else "📉 🔴 SELL / ВНИЗ"
         tf = random.choice(["M1", "M3", "M5"])
-        # Экспирация от 2 до 5 минут
-        duration = random.randint(2, 5)
+        duration = random.randint(2, 5) # строго 2-5 минут
         finish_time = (datetime.now() + timedelta(minutes=duration)).strftime("%H:%M:%S")
         payout = random.choice(["82%", "87%", "92%"])
         confidence = random.randint(85, 99)
@@ -50,7 +49,7 @@ class QuantumAnalyzer:
 
 engine = QuantumAnalyzer()
 
-# --- 5. ВЕРИФИКАЦИЯ ---
+# --- ВЕРИФИКАЦИЯ ---
 async def verify_user(uid: str):
     if int(uid) in WHITE_LIST: return True, True
     hash_str = hashlib.md5(f"{uid}:{PARTNER_ID}:{API_TOKEN}".encode()).hexdigest()
@@ -61,12 +60,14 @@ async def verify_user(uid: str):
             return resp.json().get("status") == "success", float(resp.json().get("deposit", 0)) >= 20
     except: return False, False
 
-# --- 6. ХЕНДЛЕРЫ ---
+# --- ХЕНДЛЕРЫ ---
 @dp.message(Command("start"))
 async def start(m: types.Message):
     text = (
-        "👑 **TEAM MASTER: QUANTUM CORE v7.5**\n\n"
-        "Система инициализирована. Выберите язык интерфейса:"
+        "👑 **TEAM MASTER: QUANTUM CORE SYSTEM v4.5**\n\n"
+        "Система инициализирована. Мы анализируем рыночные данные 24/7 для поиска оптимальных точек входа.\n\n"
+        "🌐 **Выберите предпочтительный язык интерфейса:**\n"
+        "Select your language / Выберите язык / Оберіть мову / Wählen Sie eine Sprache / Seleccione el idioma / Choisissez votre langue"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🇷🇺 RU", callback_data="lang:ru"), InlineKeyboardButton(text="🇺🇸 EN", callback_data="lang:en")],
@@ -78,8 +79,9 @@ async def start(m: types.Message):
 @dp.callback_query(F.data.startswith("lang:"))
 async def select_lang(c: types.CallbackQuery):
     await c.message.edit_text(
-        "📝 **ШАГ 1: РЕГИСТРАЦИЯ**\n\n"
-        "Зарегистрируйтесь по ссылке и пришлите ID:",
+        "📝 **ШАГ 1: РЕГИСТРАЦИЯ В СИСТЕМЕ**\n\n"
+        "Для обеспечения синхронизации вашего торгового аккаунта с нашим квантовым ядром, вы обязаны пройти регистрацию по партнерской ссылке.\n\n"
+        "После завершения регистрации, пожалуйста, скопируйте ваш ID и отправьте его в этот чат.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📈 ПЕРЕЙТИ НА ПЛАТФОРМУ", url=PLATFORM_URL)]
         ])
@@ -89,31 +91,32 @@ async def select_lang(c: types.CallbackQuery):
 async def auth(m: types.Message):
     reg, dep = await verify_user(m.text)
     if not reg: await m.answer("❌ ID не найден.")
-    elif not dep: await m.answer("💳 Пополните от $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ", callback_data=f"check:{m.text}")]]))
+    elif not dep: await m.answer("💳 Пополните счет от $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ", callback_data=f"check:{m.text}")]]))
     else: await m.answer("✅ Доступ активен!", reply_markup=get_main_kb())
 
 @dp.callback_query(F.data == "get_sig")
 async def get_sig(c: types.CallbackQuery):
     asset, direction, tf, duration, finish, payout, conf = engine.analyze()
     signal = (
-        f"📡 **СИГНАЛ**\n\n"
-        f"🔹 **Активы:** `{asset}`\n"
+        f"📡 **СИГНАЛ TEAM MASTER**\n\n"
+        f"🔹 **Актив:** `{asset}`\n"
         f"⚡️ **Направление:** {direction}\n"
         f"📊 **ТФ:** `{tf}`\n"
-        f"⏱ **Время:** `{duration} мин`\n"
+        f"⏱ **Экспирация:** `{duration} мин`\n"
         f"⏳ **До:** `{finish}`\n"
         f"🎯 **Выплата:** `{payout}`\n"
-        f"🔥 **Уверенность:** `{conf}%`"
+        f"🔥 **Индекс уверенности:** `{conf}%`\n\n"
+        "⚠️ *Соблюдайте риски.*"
     )
     await c.message.answer(signal, reply_markup=get_main_kb())
 
 def get_main_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📡 ПОЛУЧИТЬ СИГНАЛ", callback_data="get_sig")],
+        [InlineKeyboardButton(text="📡 ПОЛУЧИТЬ КВАНТОВЫЙ СИГНАЛ", callback_data="get_sig")],
         [InlineKeyboardButton(text="👨‍💻 ПОДДЕРЖКА", url=SUPPORT_URL)]
     ])
 
-# --- 7. ЗАПУСК ---
+# --- ЗАПУСК ---
 async def web_server():
     runner = web.AppRunner(web.Application())
     await runner.setup()
