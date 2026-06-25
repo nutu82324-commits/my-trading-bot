@@ -39,12 +39,10 @@ dp = Dispatcher()
 class QuantumAnalyzer:
     def analyze(self):
         asset = random.choice(ALL_PAIRS)
-        direction = "📈 🟢 BUY / ВВЕРХ" if random.random() > 0.5 else "📉 🔴 SELL / ВНИЗ"
+        direction = "📈 🟢 BUY" if random.random() > 0.5 else "📉 🔴 SELL"
         tf = random.choice(["M1", "M3", "M5"])
-        
-        # ЭКСПИРАЦИЯ строго от 2 до 6 минут
-        duration = random.randint(2, 6)
-        
+        # Экспирация от 2 до 5 минут
+        duration = random.randint(2, 5)
         finish_time = (datetime.now() + timedelta(minutes=duration)).strftime("%H:%M:%S")
         payout = random.choice(["82%", "87%", "92%"])
         confidence = random.randint(85, 99)
@@ -67,21 +65,21 @@ async def verify_user(uid: str):
 @dp.message(Command("start"))
 async def start(m: types.Message):
     text = (
-        "👑 **TEAM MASTER: QUANTUM CORE SYSTEM v4.5**\n\n"
-        "Система инициализирована. Мы анализируем рыночные данные 24/7 для поиска оптимальных точек входа.\n\n"
-        "🌐 **Выберите предпочтительный язык интерфейса:**"
+        "👑 **TEAM MASTER: QUANTUM CORE v7.5**\n\n"
+        "Система инициализирована. Выберите язык интерфейса:"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🇷🇺 RU", callback_data="lang:ru"), InlineKeyboardButton(text="🇺🇸 EN", callback_data="lang:en")]
+        [InlineKeyboardButton(text="🇷🇺 RU", callback_data="lang:ru"), InlineKeyboardButton(text="🇺🇸 EN", callback_data="lang:en")],
+        [InlineKeyboardButton(text="🇺🇦 UA", callback_data="lang:ua"), InlineKeyboardButton(text="🇩🇪 DE", callback_data="lang:de")],
+        [InlineKeyboardButton(text="🇪🇸 ES", callback_data="lang:es"), InlineKeyboardButton(text="🇫🇷 FR", callback_data="lang:fr")]
     ])
     await m.answer(text, reply_markup=kb)
 
 @dp.callback_query(F.data.startswith("lang:"))
 async def select_lang(c: types.CallbackQuery):
     await c.message.edit_text(
-        "📝 **ШАГ 1: РЕГИСТРАЦИЯ В СИСТЕМЕ**\n\n"
-        "Для обеспечения синхронизации вашего торгового аккаунта с нашим квантовым ядром, вы обязаны пройти регистрацию по партнерской ссылке.\n\n"
-        "После завершения регистрации, пожалуйста, скопируйте ваш ID и отправьте его в этот чат.",
+        "📝 **ШАГ 1: РЕГИСТРАЦИЯ**\n\n"
+        "Зарегистрируйтесь по ссылке и пришлите ID:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📈 ПЕРЕЙТИ НА ПЛАТФОРМУ", url=PLATFORM_URL)]
         ])
@@ -91,29 +89,27 @@ async def select_lang(c: types.CallbackQuery):
 async def auth(m: types.Message):
     reg, dep = await verify_user(m.text)
     if not reg: await m.answer("❌ ID не найден.")
-    elif not dep: await m.answer("💳 Пополните счет от $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ", callback_data=f"check:{m.text}")]]))
+    elif not dep: await m.answer("💳 Пополните от $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔄 ПРОВЕРИТЬ", callback_data=f"check:{m.text}")]]))
     else: await m.answer("✅ Доступ активен!", reply_markup=get_main_kb())
 
 @dp.callback_query(F.data == "get_sig")
 async def get_sig(c: types.CallbackQuery):
     asset, direction, tf, duration, finish, payout, conf = engine.analyze()
-    # Твой формат сигнала
     signal = (
-        f"📡 **СИГНАЛ TEAM MASTER**\n\n"
-        f"🔹 **Актив:** `{asset}`\n"
+        f"📡 **СИГНАЛ**\n\n"
+        f"🔹 **Активы:** `{asset}`\n"
         f"⚡️ **Направление:** {direction}\n"
         f"📊 **ТФ:** `{tf}`\n"
-        f"⏱ **Экспирация:** `{duration} мин`\n"
+        f"⏱ **Время:** `{duration} мин`\n"
         f"⏳ **До:** `{finish}`\n"
         f"🎯 **Выплата:** `{payout}`\n"
-        f"🔥 **Индекс уверенности:** `{conf}%`\n\n"
-        "⚠️ *Соблюдайте риски.*"
+        f"🔥 **Уверенность:** `{conf}%`"
     )
     await c.message.answer(signal, reply_markup=get_main_kb())
 
 def get_main_kb():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📡 ПОЛУЧИТЬ КВАНТОВЫЙ СИГНАЛ", callback_data="get_sig")],
+        [InlineKeyboardButton(text="📡 ПОЛУЧИТЬ СИГНАЛ", callback_data="get_sig")],
         [InlineKeyboardButton(text="👨‍💻 ПОДДЕРЖКА", url=SUPPORT_URL)]
     ])
 
