@@ -1,6 +1,8 @@
 import asyncio
 import random
 import logging
+import os
+from aiohttp import web
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -18,7 +20,7 @@ WHITE_LIST = [6765689893, 8273386412]
 SUPPORT_URL = "https://t.me/andriddddd"
 PLATFORM_URL = "https://u3.shortink.io/cabinet/demo-quick-high-low?utm_campaign=850173&utm_source=affiliate&utm_medium=sr&a=RLQDltKf13Zlrj&al=1771346&ac=smart-link&cid=960963&code=WELCOME50"
 
-# --- БАЗЫ АКТИВОВ (МАКСИМАЛЬНЫЙ СПИСОК) ---
+# --- БАЗЫ АКТИВОВ ---
 CURRENCIES = ["EUR/USD", "GBP/USD", "USD/JPY", "USD/CAD", "USD/CHF", "AUD/USD", "NZD/USD"]
 CROSS_PAIRS = ["EUR/JPY", "GBP/JPY", "AUD/CAD", "EUR/AUD", "EUR/CAD", "CAD/CHF"]
 OTC = [
@@ -97,7 +99,6 @@ async def process_id(m: types.Message, state: FSMContext):
     else:
         await m.answer("❌ **Ошибка доступа: Депозит не верифицирован в системе.**")
 
-# --- РЕЖИМЫ (АВТО / РУЧНОЙ) ---
 @dp.callback_query(F.data == "mode:auto")
 async def auto_trade(c: types.CallbackQuery):
     asset = random.choice(CURRENCIES + CROSS_PAIRS + OTC)
@@ -121,12 +122,10 @@ async def manual_menu(c: types.CallbackQuery, state: FSMContext):
     await c.message.edit_text("📂 Выберите категорию активов:", reply_markup=kb)
     await state.set_state(TradeFlow.manual_category)
 
-# --- ЛОГИКА РУЧНОГО ВЫБОРА (УПРОЩЕНА ДЛЯ СТАБИЛЬНОСТИ) ---
 @dp.callback_query(TradeFlow.manual_category, F.data.startswith("m_cat:"))
 async def select_asset_manual(c: types.CallbackQuery, state: FSMContext):
     cat = c.data.split(":")[1]
     items = CURRENCIES if cat == "curr" else (CROSS_PAIRS if cat == "cross" else OTC)
-    # Выводим первые 8 для компактности
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=i, callback_data=f"m_asset:{i}")] for i in items[:8]])
     await c.message.edit_text("🔹 Выберите актив из списка:", reply_markup=kb)
     await state.set_state(TradeFlow.manual_asset)
@@ -156,7 +155,18 @@ async def send_final_signal(c: types.CallbackQuery, state: FSMContext):
     await c.message.answer(sig, reply_markup=get_signal_control_kb())
     await state.clear()
 
+# --- ВЕБ-СЕРВЕР ДЛЯ RENDER ---
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', lambda r: web.Response(text="Bot is running!"))
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+
 async def main():
+    await start_web_server()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
