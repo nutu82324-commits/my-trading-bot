@@ -1,6 +1,7 @@
 import asyncio
 import random
-import aiohttp
+import os
+from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -30,7 +31,7 @@ class FSM(StatesGroup):
     exp = State()
 
 def sig_text(asset, tf, exp):
-    return (f"📡 **СИГНАЛ TEAM MASTER**\n\n"
+    text = (f"📡 **СИГНАЛ TEAM MASTER**\n\n"
             f"🔷 **Актив:** `{asset}`\n"
             f"⚡️ **Направление:** 📈 🟢 BUY / ВВЕРХ\n"
             f"📊 **ТФ:** `{tf}`\n"
@@ -39,6 +40,10 @@ def sig_text(asset, tf, exp):
             f"🎯 **Выплата:** `{random.randint(90, 96)}%`\n"
             f"🔥 **Индекс уверенности:** `{random.randint(93, 98)}%`\n\n"
             "⚠️ *Соблюдайте риски.*")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Перекрытие (x2.5)", callback_data="m:auto")]
+    ])
+    return text, kb
 
 @dp.message(Command("start"))
 async def start(m: types.Message):
@@ -47,29 +52,36 @@ async def start(m: types.Message):
         [InlineKeyboardButton(text="🇺🇦 UA", callback_data="lang"), InlineKeyboardButton(text="🇩🇪 DE", callback_data="lang")],
         [InlineKeyboardButton(text="🇪🇸 ES", callback_data="lang"), InlineKeyboardButton(text="🇫🇷 FR", callback_data="lang")]
     ])
-    await m.answer("👑 **TEAM MASTER: QUANTUM CORE SYSTEM v4.5**\n\nВыберите язык:", reply_markup=kb)
+    text = ("👑 **TEAM MASTER: QUANTUM CORE SYSTEM v4.5**\n\n"
+            "Система инициализирована. Мы анализируем рыночные данные 24/7 для поиска оптимальных точек входа.\n\n"
+            "🌐 **Выберите предпочтительный язык интерфейса:**\n"
+            "Select your language / Выберите язык / Оберіть мову / Wählen Sie eine Sprache / Seleccione el idioma / Choisissez votre langue")
+    await m.answer(text, reply_markup=kb)
 
 @dp.callback_query(F.data == "lang")
 async def reg(c: types.CallbackQuery, state: FSMContext):
-    await c.message.edit_text("📝 **ШАГ 1: РЕГИСТРАЦИЯ**\nПришлите ваш ID:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 ПЛАТФОРМА", url="https://u3.shortink.io/cabinet/demo-quick-high-low?a=RLQDltKf13Zlrj")]]))
+    text = ("📝 **ШАГ 1: РЕГИСТРАЦИЯ В СИСТЕМЕ**\n\n"
+            "Для обеспечения синхронизации вашего торгового аккаунта с нашим квантовым ядром, вы обязаны пройти регистрацию по партнерской ссылке.\n\n"
+            "После завершения регистрации, пожалуйста, скопируйте ваш ID и отправьте его в этот чат.")
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 ПЕРЕЙТИ НА ПЛАТФОРМУ", url="https://u3.shortink.io/cabinet/demo-quick-high-low?a=RLQDltKf13Zlrj")]])
+    await c.message.answer(text, reply_markup=kb)
     await state.set_state(FSM.reg)
 
 @dp.message(FSM.reg)
 async def check_id(m: types.Message, state: FSMContext):
-    # ТУТ ТВОЯ ПРОВЕРКА API
     await m.answer("✅ **Депозит подтвержден. Выберите режим:**", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🤖 Автомат", callback_data="m:auto")],
-        [InlineKeyboardButton(text="⚙️ Ручной", callback_data="m:man")]
-    ]))
+        [InlineKeyboardButton(text="⚙️ Ручной", callback_data="m:man")]]))
     await state.set_state(FSM.mode)
 
 @dp.callback_query(F.data == "m:auto")
 async def auto(c: types.CallbackQuery):
-    await c.message.answer(sig_text(random.choice(LIVE), "M1", f"{random.randint(2, 5)} мин"))
+    text, kb = sig_text(random.choice(LIVE), "M1", f"{random.randint(2, 5)} мин")
+    await c.message.answer(text, reply_markup=kb)
 
 @dp.callback_query(F.data == "m:man")
 async def man(c: types.CallbackQuery, state: FSMContext):
-    await c.message.edit_text("🌍 Выберите рынок:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+    await c.message.answer("🌍 Выберите рынок:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🌍 Живой", callback_data="market:live")], [InlineKeyboardButton(text="💎 OTC", callback_data="market:otc")]]))
     await state.set_state(FSM.market)
 
@@ -77,42 +89,52 @@ async def man(c: types.CallbackQuery, state: FSMContext):
 async def market_choice(c: types.CallbackQuery, state: FSMContext):
     market = c.data.split(":")[1]
     if market == "live":
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=p, callback_data=f"a:{p}")] for p in LIVE[:8]])
-        await c.message.edit_text("🔹 Актив:", reply_markup=kb)
+        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=p, callback_data=f"a:{p}")] for p in LIVE])
+        await c.message.answer("🔹 Актив:", reply_markup=kb)
         await state.set_state(FSM.asset)
     else:
-        await c.message.edit_text("📂 Категория:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+        await c.message.answer("📂 Категория:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💵 Валюта", callback_data="cat:val")], [InlineKeyboardButton(text="🪙 Крипта", callback_data="cat:crypto")], [InlineKeyboardButton(text="📊 Акции", callback_data="cat:stock")]]))
         await state.set_state(FSM.cat)
 
 @dp.callback_query(F.data.startswith("cat:"))
 async def cat_choice(c: types.CallbackQuery, state: FSMContext):
-    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=a, callback_data=f"a:{a}")] for a in OTC_DATA[c.data.split(":")[1]]])
-    await c.message.edit_text("🔹 Актив:", reply_markup=kb)
+    cat = c.data.split(":")[1]
+    kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=a, callback_data=f"a:{a}")] for a in OTC_DATA[cat]])
+    await c.message.answer("🔹 Актив:", reply_markup=kb)
     await state.set_state(FSM.asset)
 
 @dp.callback_query(F.data.startswith("a:"))
 async def tf_choice(c: types.CallbackQuery, state: FSMContext):
     await state.update_data(asset=c.data.split(":")[1])
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=i, callback_data=f"tf:{i}")] for i in ["5 сек", "15 сек", "30 сек", "1 мин", "2 мин", "3 мин", "4 мин", "5 мин"]])
-    await c.message.edit_text("⏳ Интервал свечи:", reply_markup=kb)
+    await c.message.answer("⏳ Интервал свечи:", reply_markup=kb)
     await state.set_state(FSM.tf)
 
 @dp.callback_query(F.data.startswith("tf:"))
 async def exp_choice(c: types.CallbackQuery, state: FSMContext):
     await state.update_data(tf=c.data.split(":")[1])
     kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=e, callback_data=f"exp:{e}")] for e in ["30 сек", "1 мин", "2 мин", "3 мин", "4 мин", "5 мин"]])
-    await c.message.edit_text("⌛️ Экспирация:", reply_markup=kb)
+    await c.message.answer("⌛️ Экспирация:", reply_markup=kb)
     await state.set_state(FSM.exp)
 
 @dp.callback_query(F.data.startswith("exp:"))
 async def final(c: types.CallbackQuery, state: FSMContext):
     d = await state.get_data()
-    await c.message.answer(sig_text(d['asset'], d['tf'], c.data.split(":")[1]))
+    text, kb = sig_text(d['asset'], d['tf'], c.data.split(":")[1])
+    await c.message.answer(text, reply_markup=kb)
 
-async def main():
+async def handle(request): return web.Response(text="Bot is running")
+
+async def run_app():
+    app = web.Application()
+    app.router.add_get('/', handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', int(os.environ.get("PORT", 8080)))
+    await site.start()
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(run_app())
