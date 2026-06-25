@@ -5,11 +5,13 @@ import asyncio
 import hashlib
 import random
 import httpx
+from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.exceptions import TelegramBadRequest
 
-# Настройка логирования
+# Настройка логов
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("TeamMaster")
 
@@ -28,7 +30,7 @@ PHOTO_URL = "https://i.ibb.co/L1yZ6Gz/team-master-cover.jpg"
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# --- ПОЛНЫЙ СПИСОК АКТИВОВ ИЗ ТВОЕГО ЗАПРОСА ---
+# --- ПОЛНЫЙ СПИСОК АКТИВОВ ---
 ALL_PAIRS = [
     "EUR/USD OTC", "GBP/USD OTC", "AUD/USD OTC", "USD/JPY OTC", "USD/CHF OTC", 
     "USD/CAD OTC", "EUR/GBP OTC", "EUR/JPY OTC", "GBP/JPY OTC", "CHF/JPY OTC", 
@@ -40,7 +42,7 @@ ALL_PAIRS = [
     "Gold OTC", "Brent Oil OTC", "WTI Crude Oil OTC", "Silver OTC", "Natural Gas OTC"
 ]
 
-# --- БАЗА ДАННЫХ ---
+# --- РАБОТА С БАЗОЙ ---
 def get_db():
     if not os.path.exists(DB_FILE): return {"users": {}}
     with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -51,7 +53,7 @@ def save_db(data):
     with open(DB_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
 
-# --- ПРОВЕРКА ЧЕРЕЗ API ---
+# --- API ---
 async def check_pocket_api(user_id: str):
     hash_str = hashlib.md5(f"{user_id}:{PARTNER_ID}:{API_TOKEN}".encode()).hexdigest()
     url = f"https://affiliate.pocketoption.com/api/user-info/{user_id}/{PARTNER_ID}/{hash_str}"
@@ -59,8 +61,7 @@ async def check_pocket_api(user_id: str):
         try:
             r = await client.get(url, timeout=5)
             if r.status_code == 200:
-                data = r.json()
-                return True, float(data.get("deposit", 0)) >= 20
+                return True, float(r.json().get("deposit", 0)) >= 20
         except: pass
     return False, False
 
@@ -73,39 +74,44 @@ def get_signal_keyboard():
         [InlineKeyboardButton(text="🔄 СЛЕДУЮЩИЙ СИГНАЛ", callback_data="next_sig")]
     ])
 
-def get_signal_message():
-    return (f"🚀 **TEAM MASTER — СИГНАЛ** 🚀\n\n"
+def get_signal_msg():
+    return (f"🚀 **TEAM MASTER — СИГНАЛ СФОРМИРОВАН** 🚀\n\n"
             f"📊 Актив: `{random.choice(ALL_PAIRS)}`\n"
             f"📈 Направление: {random.choice(['🟢 ВВЕРХ / CALL', '🔴 ВНИЗ / PUT'])}\n"
             f"🎯 Точность: `{round(random.uniform(91.4, 96.2), 1)}%`")
 
-# --- ОБРАБОТЧИКИ ---
+# --- КОМАНДЫ ---
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
-    await message.answer_photo(
-        photo=PHOTO_URL, 
-        caption="📈 **TEAM MASTER v18.0**\n\nДобро пожаловать! Отправьте ваш ID для проверки в системе:", 
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 РЕГИСТРАЦИЯ", url=PLATFORM_URL)]])
-    )
+    await message.answer_photo(PHOTO_URL, caption="📈 **TEAM MASTER v18.0**\nОтправьте ID:", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📈 РЕГИСТРАЦИЯ", url=PLATFORM_URL)]]))
 
 @dp.message(F.text)
 async def id_input(message: types.Message):
     if not message.text.isdigit(): return
     ref, dep = await check_pocket_api(message.text)
     if not ref: await message.answer("❌ ID не найден."); return
-    
     if dep or message.from_user.id in ADMIN_IDS + VIP_IDS:
-        await message.answer(get_signal_message(), reply_markup=get_signal_keyboard())
+        await message.answer(get_signal_msg(), reply_markup=get_signal_keyboard())
     else:
-        await message.answer("💳 Пополните баланс на $20 для получения сигналов.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💳 ПОПОЛНИТЬ", url=PLATFORM_URL)]]))
+        await message.answer("💳 Пополните баланс на $20.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="💳 ПОПОЛНИТЬ", url=PLATFORM_URL)]]))
 
 @dp.callback_query(F.data == "next_sig")
-async def next_sig_query(callback: types.CallbackQuery):
-    await callback.message.answer(get_signal_message(), reply_markup=get_signal_keyboard())
+async def next_sig(callback: types.CallbackQuery):
+    await callback.message.answer(get_signal_msg(), reply_markup=get_signal_keyboard())
     await callback.answer()
 
+# --- ВЕБ-СЕРВЕР ДЛЯ RENDER ---
+async def start_server():
+    app = web.Application()
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 8080))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+    logger.info(f"Сервер запущен на порту {port}")
+
 async def main():
-    logger.info("Бот запущен и готов к работе.")
+    await start_server()
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
