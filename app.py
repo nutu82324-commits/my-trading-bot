@@ -174,3 +174,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except Exception as e:
         logger.error(f"КРИТИЧЕСКАЯ ОШИБКА ЯДРА: {e}")
+ 
