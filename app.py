@@ -31,9 +31,13 @@ class FSM(StatesGroup):
     exp = State()
 
 def sig_text(asset, tf, exp):
+    # Добавляем рандом направления
+    direction = random.choice([("🟢 BUY / ВВЕРХ", "📈"), ("🔴 SELL / ВНИЗ", "📉")])
+    dir_text, dir_icon = direction
+    
     text = (f"📡 **СИГНАЛ TEAM MASTER**\n\n"
             f"🔷 **Актив:** `{asset}`\n"
-            f"⚡️ **Направление:** 📈 🟢 BUY / ВВЕРХ\n"
+            f"⚡️ **Направление:** {dir_icon} {dir_text}\n"
             f"📊 **ТФ:** `{tf}`\n"
             f"⏱ **Экспирация:** `{exp}`\n"
             f"⏳ **Вход до:** {(asyncio.get_event_loop().time() + 300):.0f}\n"
