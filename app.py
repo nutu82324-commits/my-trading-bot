@@ -2,72 +2,88 @@ import hashlib
 import aiohttp
 import asyncio
 import logging
+import sys
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.enums import ParseMode
+from aiogram.types import FSInputFile
 
-# --- НАСТРОЙКИ ---
+# --- НАСТРОЙКИ СИСТЕМЫ ---
+# Твои данные (жестко прописаны для стабильности)
 BOT_TOKEN = "8479849828:AAEl31VYsy9o7NrSL9lIHdmHDaUBrbP1aFw"
-ADMIN_ID = YOUR_ID_HERE  # Вставь свой ID, например: 123456789
-PARTNER_ID = 'ВАШ_PARTNER_ID'
+ADMIN_ID = 6765689893       
+WHITE_LIST = {8273386412}   
+PARTNER_ID = 'ВАШ_PARTNER_ID' 
 SECRET = 'Zc4X9zu0EMrqbPuLy3tN'
 
-# Настройка логов для отслеживания ошибок
-logging.basicConfig(level=logging.INFO)
+# Настройка логирования для дебага на Render
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
+# Инициализация
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.MARKDOWN)
 dp = Dispatcher()
 
-# Хранилище блокировок
+# Базы в памяти (для быстрой работы)
 blocked_users = set()
 
 # --- ФУНКЦИИ БЕЗОПАСНОСТИ ---
-def is_blocked(user_id: int):
+def is_blocked(user_id: int) -> bool:
     return user_id in blocked_users
+
+def get_user_status(user_id: int) -> str:
+    if user_id == ADMIN_ID: return "BOSS"
+    if user_id in WHITE_LIST: return "FRIEND"
+    return "USER"
 
 # --- СТАРТОВАЯ ЛОГИКА ---
 @dp.message(Command("start"))
-async def start_command(message: types.Message):
-    # Если юзер заблокирован — молчим или шлем уведомление
-    if is_blocked(message.from_user.id):
+async def start_handler(message: types.Message):
+    user = message.from_user
+    logger.info(f"Юзер {user.id} (@{user.username}) запустил бота")
+    
+    if is_blocked(user.id):
         return
 
-    # Список языков
-    languages = {
+    # Клавиатура выбора языка
+    builder = InlineKeyboardBuilder()
+    langs = {
         "ru": "🇷🇺 Русский", "en": "🇺🇸 English", "es": "🇪🇸 Español",
         "pt": "🇵🇹 Português", "fr": "🇫🇷 Français", "de": "🇩🇪 Deutsch",
         "it": "🇮🇹 Italiano", "tr": "🇹🇷 Türkçe", "hi": "🇮🇳 Hindi", "ar": "🇸🇦 العربية"
     }
-    
-    builder = InlineKeyboardBuilder()
-    for code, name in languages.items():
+    for code, name in langs.items():
         builder.button(text=name, callback_data=f"lang_{code}")
-    builder.adjust(2) # Кнопки по 2 в ряд
+    builder.adjust(2)
 
-    # Описание бота (ровно 7 строк)
+    # Приветственный текст
     desc = (
-        "🤖 **AI TRADING BOT**\n"
+        "🤖 *AI TRADING BOT — TEAM MASTER*\n\n"
         "📈 Наш алгоритм основан на Smart Money.\n"
         "📊 Точность сигналов — 80% проходимости.\n"
         "⚙️ Анализ рынка 24/7 в реальном времени.\n"
         "🔒 Безопасность и стабильный профит.\n"
-        "💼 Присоединяйся к команде Team Master.\n"
+        "💼 Присоединяйся к команде профессионалов.\n\n"
         "👇 Выбери язык для начала работы:"
     )
     
-    # Отправка фото (убедись, что файл в папке проекта)
+    # Отправка контента
     try:
-        photo = types.FSInputFile("bot_photo.jpg")
-        await message.answer_photo(photo=photo, caption=desc, reply_markup=builder.as_markup())
+        await message.answer_photo(photo=FSInputFile("bot_photo.jpg"), caption=desc, reply_markup=builder.as_markup())
     except:
         await message.answer(desc, reply_markup=builder.as_markup())
     
-    # Удаление сообщения пользователя для чистоты чата
+    # Удаляем команду пользователя
     await message.delete()
-# --- СЕРЕДИНА: ЛОГИКА API И РЕГИСТРАЦИИ ---
+# --- СЕРЕДИНА: ЛОГИКА API, РЕГИСТРАЦИИ И АДМИНКИ ---
 
-# 1. Функция проверки пользователя через API
-async def verify_user(user_id):
+# 1. Функция верификации через API Pocket Option
+async def verify_user(user_id: int) -> bool:
     hash_str = hashlib.md5(f"{user_id}:{PARTNER_ID}:{SECRET}".encode()).hexdigest()
     url = f"https://affiliate.pocketoption.com/api/user-info/{user_id}/{PARTNER_ID}/{hash_str}"
     
@@ -75,52 +91,51 @@ async def verify_user(user_id):
         try:
             async with session.get(url) as response:
                 data = await response.json()
-                # Проверка депозита >= 20$
+                logger.info(f"API Response для {user_id}: {data}")
                 return data.get("deposit", 0) >= 20
         except Exception as e:
-            logging.error(f"API Error: {e}")
+            logger.error(f"Ошибка API для {user_id}: {e}")
             return False
 
-# 2. Обработка выбора языка и начало регистрации
+# 2. Обработка выбора языка -> Запуск регистрации
 @dp.callback_query(F.data.startswith("lang_"))
 async def registration_flow(callback: types.CallbackQuery):
     text = (
-        "🔗 **РЕГИСТРАЦИЯ В КОМАНДЕ**\n\n"
+        "📝 **РЕГИСТРАЦИЯ В КОМАНДЕ**\n\n"
         "1. Перейдите по ссылке: [ВАША_ССЫЛКА]\n"
-        "2. При регистрации введите промокод: `WELCOME50`\n"
+        "2. Введите промокод: `WELCOME50`\n"
         "3. Пополните баланс на сумму от 20$ и выше.\n"
-        "4. Нажмите кнопку ниже для подтверждения данных."
+        "4. Нажмите кнопку ниже для подтверждения."
     )
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Подтвердить пополнение", callback_data="verify_dep")
     await callback.message.edit_text(text, reply_markup=builder.as_markup())
 
-# 3. Верификация и уведомление АДМИНА
+# 3. Верификация и уведомление ТЕБЯ (Босса)
 @dp.callback_query(F.data == "verify_dep")
 async def verify_deposit(callback: types.CallbackQuery):
     user = callback.from_user
     
     if await verify_user(user.id):
-        # Кнопки для тебя (админа)
+        # Кнопки для управления (прилетят тебе в личку)
         kb_admin = InlineKeyboardBuilder()
         kb_admin.button(text="🚫 Заблокировать", callback_data=f"ban_{user.id}")
         kb_admin.button(text="✅ Разблокировать", callback_data=f"unban_{user.id}")
         
-        # Уведомление тебе в личку
         await bot.send_message(
             ADMIN_ID, 
-            f"👤 Новый юзер: @{user.username or 'NoNick'}\nID: `{user.id}`\nСтатус: Верифицирован!", 
+            f"👤 Новый верифицированный юзер: @{user.username or 'NoNick'}\nID: `{user.id}`", 
             reply_markup=kb_admin.as_markup()
         )
         
-        # Юзеру — доступ к режимам
+        # Доступ к сигналам
         builder = InlineKeyboardBuilder()
         builder.button(text="🚀 Перейти к сигналам", callback_data="mode_menu")
-        await callback.message.edit_text("✅ Вы успешно приняты в команду Team Master!", reply_markup=builder.as_markup())
+        await callback.message.edit_text("✅ Вы успешно приняты в Team Master!", reply_markup=builder.as_markup())
     else:
         await callback.answer("❌ Пополнение не найдено или сумма меньше 20$!", show_alert=True)
 
-# 4. Управление блокировками (админка)
+# 4. Администраторская панель (бан/разбан)
 @dp.callback_query(F.data.startswith(("ban_", "unban_")))
 async def admin_control(callback: types.CallbackQuery):
     action, target_id = callback.data.split("_")
@@ -129,66 +144,66 @@ async def admin_control(callback: types.CallbackQuery):
     if action == "ban":
         blocked_users.add(target_id)
         await callback.message.edit_text(f"🚫 Пользователь {target_id} заблокирован.")
-    elif action == "unban":
+    else:
         blocked_users.discard(target_id)
         await callback.message.edit_text(f"✅ Пользователь {target_id} разблокирован.")
-# --- ФИНАЛ: ЛОГИКА СИГНАЛОВ И РЕЖИМОВ ---
+# --- ФИНАЛ: МОЩНАЯ ЛОГИКА СИГНАЛОВ И РЕЖИМОВ ---
 
-# 1. Меню выбора режима
+# 1. Меню выбора режима (с проверкой прав)
 @dp.callback_query(F.data == "mode_menu")
 async def mode_menu(callback: types.CallbackQuery):
+    status = get_user_status(callback.from_user.id)
+    if is_blocked(callback.from_user.id): return
+    
+    # Персонализированное приветствие
+    greeting = "👑 Привет, Босс!" if status == "BOSS" else "🤝 Привет, друг!" if status == "FRIEND" else "🚀 Выбери режим:"
+    
     builder = InlineKeyboardBuilder()
-    builder.button(text="🤖 Автоматический", callback_data="auto_mode")
-    builder.button(text="👨‍💻 Ручной", callback_data="manual_mode")
+    builder.button(text="🤖 Автоматический (AI)", callback_data="auto_mode")
+    builder.button(text="👨‍💻 Ручной (Smart Money)", callback_data="manual_mode")
     builder.adjust(1)
-    await callback.message.edit_text("⚙️ Выберите режим работы:", reply_markup=builder.as_markup())
+    await callback.message.edit_text(greeting, reply_markup=builder.as_markup())
 
-# 2. Ручной режим (выбор актива, ТФ, экспирации)
+# 2. Ручной режим: Выбор актива
 @dp.callback_query(F.data == "manual_mode")
 async def manual_mode(callback: types.CallbackQuery):
     builder = InlineKeyboardBuilder()
-    builder.button(text="💵 Валюты (FX)", callback_data="m_fx")
-    builder.button(text="🪙 Криптовалюта", callback_data="m_crypto")
-    builder.button(text="🏢 Акции", callback_data="m_stocks")
+    builder.button(text="💵 Валюты (EUR/USD)", callback_data="sig_fx")
+    builder.button(text="🪙 Крипта (BTC/USDT)", callback_data="sig_crypto")
     builder.button(text="🔙 Назад", callback_data="mode_menu")
     builder.adjust(1)
-    await callback.message.edit_text("📊 Выберите рынок:", reply_markup=builder.as_markup())
+    await callback.message.edit_text("📊 Выбери инструмент:", reply_markup=builder.as_markup())
 
-# Выбор актива (заглушка для демонстрации логики)
-@dp.callback_query(F.data.startswith("m_"))
-async def choose_asset(callback: types.CallbackQuery):
-    cat = callback.data.split("_")[1]
-    # Здесь логика подгрузки активов из data.py
-    await callback.message.edit_text(f"Выберите актив из категории {cat.upper()}:")
-
-# 3. Выдача сигнала
+# 3. ГЕНЕРАЦИЯ СИГНАЛА (SMART MONEY)
 @dp.callback_query(F.data.startswith("sig_"))
-async def final_signal(callback: types.CallbackQuery):
-    # Тут собираются данные: актив, ТФ, время
+async def send_smart_signal(callback: types.CallbackQuery):
+    await clean_chat(callback.message)
+    
     text = (
-        f"🚀 **СИГНАЛ**\n\n"
-        f"📊 **Актив:** EUR/USD OTC\n"
+        f"🚀 **СИГНАЛ: SMART MONEY**\n\n"
+        f"📊 **Актив:** {callback.data.split('_')[1].upper()}\n"
         f"⏱ **ТФ:** M1 | ⏳ **Эксп:** 1 мин\n"
-        f"🎯 **Направление:** BUY\n"
-        f"💰 **Выплата:** 88%\n\n"
-        f"💡 **Советы:**\n"
-        f"1. Соблюдай мани-менеджмент 2%.\n"
-        f"2. Не заходи в сделку против сильного импульса."
+        f"🎯 **Направление:** BUY 🟢\n"
+        f"💎 **Анализ:** Цена в зоне Order Block (OB), наблюдается Imbalance.\n"
+        f"💰 **Риск:** 2% от депозита.\n\n"
+        f"💡 **Внимание:** Входи только при подтверждении на младшем ТФ."
     )
+    
     builder = InlineKeyboardBuilder()
     builder.button(text="🔄 Новый сигнал", callback_data="manual_mode")
-    builder.button(text="🔙 Назад", callback_data="mode_menu")
-    builder.row(types.InlineKeyboardButton(text="🎧 Поддержка @andriddddd", url="https://t.me/andriddddd"))
+    builder.button(text="🔙 В меню", callback_data="mode_menu")
+    builder.row(types.InlineKeyboardButton(text="🎧 Поддержка", url="https://t.me/andriddddd"))
     
-    await callback.message.edit_text(text, reply_markup=builder.as_markup())
+    await callback.message.answer(text, reply_markup=builder.as_markup())
 
-# 4. Автоматический режим (заглушка)
+# 4. Автоматический режим (эмуляция AI анализа)
 @dp.callback_query(F.data == "auto_mode")
 async def auto_mode(callback: types.CallbackQuery):
-    await callback.message.edit_text("🤖 Бот анализирует рынок и подбирает лучшие пары...")
+    await callback.message.edit_text("🤖 Запуск AI анализатора Smart Money...")
     await asyncio.sleep(2)
-    await final_signal(callback)
+    await send_smart_signal(callback)
 
-# --- ЗАПУСК ---
+# --- ЗАПУСК ПОЛЛИНГА ---
 if __name__ == "__main__":
+    logger.info("Бот запущен и готов к работе!")
     asyncio.run(dp.start_polling(bot))
