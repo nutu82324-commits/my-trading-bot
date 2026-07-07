@@ -8,7 +8,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters import Command
 
 # ИНИЦИАЛИЗАЦИЯ
-TOKEN = "8529253881:AAFqonTpJo5YSSGdLcU_RKhvbTHx1-xdTBs"
+TOKEN = "8529253881:AAFFFycJCg70iT0JxB_DP8sgMMQksor3_KY"
 BOSS_ID = 6765689893
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
