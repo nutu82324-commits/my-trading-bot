@@ -2,7 +2,6 @@ import asyncio
 import sqlite3
 import ccxt.async_support as ccxt
 import pandas as pd
-import pandas_ta as ta
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -20,10 +19,10 @@ cur = db.cursor()
 cur.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, status TEXT, paid INTEGER DEFAULT 0)")
 db.commit()
 
-# ПОЛНАЯ БАЗА С УЧЕТОМ ВСЕХ ТВОИХ АКЦИЙ/КРИПТЫ/ВАЛЮТ
+# ТВОЯ ПОЛНАЯ БАЗА
 ASSETS = {
     "🌍 Валюты": ["AUD/USD OTC", "CAD/CHF OTC", "EUR/GBP OTC", "EUR/JPY OTC", "EUR/USD OTC", "NZD/USD OTC", "SAR/CNY OTC", "UAH/USD OTC", "USD/BDT OTC", "USD/CAD OTC", "USD/CLP OTC", "USD/IDR OTC", "USD/INR OTC", "USD/JPY OTC", "USD/SGD OTC", "ZAR/USD OTC", "EUR/HUF OTC", "AUD/CHF", "CAD/CHF", "EUR/USD", "KES/USD OTC", "USD/CHF", "USD/COP OTC", "EUR/NZD OTC", "USD/PHP OTC", "JOD/CNY OTC", "AED/CNY OTC", "QAR/CNY OTC", "YER/USD OTC", "AUD/JPY", "CHF/JPY OTC", "AUD/USD", "USD/CAD", "AED/CNY OTC", "AUD/CAD", "AUD/NZD OTC", "USD/THB OTC", "GBP/USD", "CAD/JPY", "EUR/CAD", "USD/JPY", "GBP/JPY", "GBP/CAD", "NZD/JPY OTC", "CHF/NOK OTC", "EUR/JPY", "EUR/TRY OTC", "USD/BRL OTC", "AUD/CAD OTC", "EUR/CHF OTC", "GBP/AUD", "AUD/CHF OTC", "CAD/JPY OTC", "GBP/AUD OTC", "NGN/USD OTC", "USD/DZD OTC", "USD/ARS OTC", "USD/CNH OTC", "EUR/CHF"],
-    "💎 Крипта": ["Cardano OTC", "Dogecoin OTC", "Polkadot OTC", "Polygon OTC", "Toncoin OTC", "Ethereum OTC", "BNB OTC", "Avalanche OTC", "Solana OTC", "Bitcoin OTC", "BTC/USD", "ETH/USD", "SOL/USD", "BNB/USD", "ADA/USD", "TON/USD", "XRP/USD"],
+    "💎 Крипта": ["Cardano OTC", "Dogecoin OTC", "Polkadot OTC", "Polygon OTC", "Toncoin OTC", "Ethereum OTC", "BNB OTC", "Avalanche OTC", "Solana OTC", "Bitcoin OTC",],
     "📈 Акции": ["Apple OTC", "Boeing Company OTC", "McDonald's OTC", "Pfizer Inc OTC", "VISA OTC", "Cisco OTC", "GameStop Corp OTC", "ExxonMobil OTC", "Tesla OTC", "Citigroup Inc OTC", "Netflix OTC", "American Express OTC", "Amazon OTC", "Palantir Technologies OTC", "Alibaba OTC", "VIX OTC", "Coinbase Global OTC", "Boeing Company", "FACEBOOK INC", "FACEBOOK INC OTC", "AAPL", "TSLA", "NVDA", "GOOGL", "AMZN", "MSFT"],
     "🌐 Языки": {
         "Русский": "🇷🇺", "English": "🇺🇸", "Deutsch": "🇩🇪", "Español": "🇪🇸", 
@@ -32,24 +31,33 @@ ASSETS = {
     }
 }
 
-# АНАЛИЗАТОР ПО БИНАНС API
+# АНАЛИЗАТОР (БЕЗ pandas_ta, расчет RSI/EMA вручную)
 async def ai_analyze(symbol):
     try:
         ex = ccxt.binance({'enableRateLimit': True})
         pair = symbol.replace(' OTC', '').replace('/', '')
         ohlcv = await ex.fetch_ohlcv(pair, '1m', limit=100)
         df = pd.DataFrame(ohlcv, columns=['t', 'o', 'h', 'l', 'c', 'v'])
-        rsi = ta.rsi(df['c'], 14).iloc[-1]
-        ema = ta.ema(df['c'], 50).iloc[-1]
+        
+        # Ручной расчет RSI
+        delta = df['c'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = (100 - (100 / (1 + rs))).iloc[-1]
+        
+        # Ручной расчет EMA
+        ema = df['c'].ewm(span=50, adjust=False).mean().iloc[-1]
         price = df['c'].iloc[-1]
         
-        # ЛОГИКА ИИ СИГНАЛОВ
         if rsi < 30 and price > ema:
             return "🟢 BUY", "Сильный потенциал роста", "96.4%", "1 минута"
         elif rsi > 70 and price < ema:
             return "🔴 SELL", "Сильный потенциал падения", "95.8%", "1 минута"
         return "⚪ WAIT", "Нейтральный рынок", "42.0%", "Не рекомендуется"
-    except: return "⚠️", "Ошибка API", "0%", "N/A"
+    except Exception as e:
+        print(f"Error: {e}")
+        return "⚠️", "Ошибка API", "0%", "N/A"
 
 # ХЕНДЛЕРЫ
 @router.message(Command("start"))
@@ -63,7 +71,8 @@ async def start(m: Message):
 
 @router.callback_query(F.data == "check")
 async def check(c: CallbackQuery):
-    if cur.execute("SELECT paid FROM users WHERE id=?", (c.from_user.id,)).fetchone()[0] == 1:
+    user = cur.execute("SELECT paid FROM users WHERE id=?", (c.from_user.id,)).fetchone()
+    if user and user[0] == 1:
         kb = InlineKeyboardBuilder()
         for k in ASSETS: kb.button(text=k, callback_data=f"cat_{k}")
         kb.adjust(1)
@@ -95,16 +104,18 @@ async def set_lang(c: CallbackQuery):
 @router.message(Command("pay"))
 async def pay(m: Message):
     if m.from_user.id == BOSS_ID:
-        cur.execute("UPDATE users SET paid=1 WHERE id=?", (m.text.split()[1],))
+        uid = m.text.split()[1]
+        cur.execute("UPDATE users SET paid=1 WHERE id=?", (uid,))
         db.commit()
-        await m.answer("✅ Доступ выдан")
+        await m.answer(f"✅ Доступ выдан пользователю {uid}")
 
 @router.message(Command("ban"))
 async def ban(m: Message):
     if m.from_user.id == BOSS_ID:
-        cur.execute("UPDATE users SET status='banned' WHERE id=?", (m.text.split()[1],))
+        uid = m.text.split()[1]
+        cur.execute("UPDATE users SET status='banned' WHERE id=?", (uid,))
         db.commit()
-        await m.answer("🚫 Забанен")
+        await m.answer(f"🚫 Забанен пользователь {uid}")
 
 async def main():
     dp.include_router(router)
