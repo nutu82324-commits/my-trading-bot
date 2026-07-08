@@ -118,7 +118,11 @@ async def ban(m: Message):
         await m.answer(f"🚫 Забанен пользователь {uid}")
 
 async def main():
+    # Эта строка принудительно удаляет старые вебхуки, мешающие работе через polling
+    await bot.delete_webhook(drop_pending_updates=True)
+    
     dp.include_router(router)
     await dp.start_polling(bot)
 
-if __name__ == "__main__": asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
