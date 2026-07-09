@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
 
-TOKEN = "8879888014:AAHZImn-1tKDXrfgQjWBR1pJM3AWOybcEVk"
+TOKEN = "8879888014:AAF0-hRWVKGIZAIr8s9FB3ela-58UelxrKk"
 SUPPORT_URL = "https://t.me/andriddddd"
 
 bot = Bot(token=TOKEN)
