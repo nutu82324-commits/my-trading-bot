@@ -1,5 +1,1 @@
-opencv-python
-pyautogui
-Pillow
-easyocr
-numpy
+streamlit
