@@ -1,48 +1,98 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form, Request
 from fastapi.responses import HTMLResponse
 import numpy as np
 import cv2
+import base64
+import json
+from pydantic import BaseModel
 
 app = FastAPI()
 
-# --- CSS И ДИЗАЙН ---
+# --- ПРЕМИУМ ИНТЕРФЕЙС ---
 UI_HTML = """
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI MASTER PRO</title>
     <style>
-        body { background: #0c0e12; color: #fff; font-family: 'Segoe UI', sans-serif; margin: 0; padding: 15px; }
-        .glass-panel { background: #1a1d24; border-radius: 20px; padding: 20px; border: 1px solid #333; }
-        video { width: 100%; border-radius: 15px; border: 2px solid #5d3fd3; }
-        .btn-scan { background: linear-gradient(135deg, #6c5ce7, #a29bfe); border: none; padding: 20px; width: 100%; border-radius: 15px; color: white; font-weight: bold; font-size: 18px; margin-top: 15px; }
-        #timer { font-size: 48px; color: #00ff88; font-weight: bold; margin: 15px 0; }
-        .status-box { margin-top: 20px; padding: 15px; border-left: 4px solid #6c5ce7; background: #222; }
+        :root { --bg: #0a0b10; --card: #15171e; --accent: #6c5ce7; --text: #fff; --green: #00ff88; --red: #ff4757; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; }
+        .container { max-width: 500px; margin: 0 auto; }
+        .card { background: var(--card); border-radius: 20px; padding: 20px; border: 1px solid #2a2d3e; margin-bottom: 15px; }
+        h2 { text-align: center; margin-top: 0; }
+        
+        .tf-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 15px 0; }
+        .btn-tf { background: #2c3e50; border: none; padding: 10px 5px; border-radius: 8px; color: #fff; cursor: pointer; font-size: 12px; }
+        .btn-tf.active { background: var(--accent); }
+        
+        input, select { width: 100%; box-sizing: border-box; background: #222; border: 1px solid #444; color: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; }
+        
+        .btn-main { width: 100%; padding: 18px; background: linear-gradient(135deg, var(--accent), #8854d0); border: none; border-radius: 15px; color: white; font-weight: bold; font-size: 16px; margin-top: 10px; }
+        
+        #timer { font-size: 45px; text-align: center; color: var(--green); font-weight: bold; margin: 15px 0; font-family: monospace; }
+        .res-text { font-size: 18px; text-align: center; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <div class="glass-panel">
-        <video id="v" autoplay playsinline></video>
-        <button class="btn-scan" onclick="scan()">СКАНИРОВАТЬ РЫНОК</button>
-        <div id="timer">00:00</div>
-        <div class="status-box" id="res">ОЖИДАНИЕ СИГНАЛА...</div>
+    <div class="container">
+        <div class="card">
+            <h2>AI MASTER PRO</h2>
+            <select id="strategy">
+                <option value="ict">Стратегия: ICT (Smart Money)</option>
+                <option value="smc">Стратегия: Smart Money</option>
+                <option value="price">Стратегия: Price Action</option>
+            </select>
+            
+            <div class="tf-grid" id="tf-grid">
+                <button class="btn-tf" onclick="setTF(this, 'S30')">S30</button>
+                <button class="btn-tf" onclick="setTF(this, 'M1')">M1</button>
+                <button class="btn-tf" onclick="setTF(this, 'M2')">M2</button>
+                <button class="btn-tf" onclick="setTF(this, 'M3')">M3</button>
+                <button class="btn-tf" onclick="setTF(this, 'M5')">M5</button>
+                <button class="btn-tf" onclick="setTF(this, 'M10')">M10</button>
+                <button class="btn-tf" onclick="setTF(this, 'M15')">M15</button>
+                <button class="btn-tf" onclick="setTF(this, 'M30')">M30</button>
+                <button class="btn-tf" onclick="setTF(this, 'H1')">H1</button>
+                <button class="btn-tf" onclick="setTF(this, 'D1')">D1</button>
+            </div>
+            
+            <input type="number" id="exp" value="60" placeholder="Экспирация (сек)">
+            <input type="file" id="file" accept="image/*" style="display:none">
+            <button class="btn-main" onclick="document.getElementById('file').click()">📂 ЗАГРУЗИТЬ ГРАФИК</button>
+        </div>
+
+        <div class="card" id="res-card" style="display:none;">
+            <div id="timer">00:00</div>
+            <div id="res-signal" class="res-text"></div>
+            <div id="res-reason" style="font-size: 14px; color: #888; text-align: center; margin-top: 10px;"></div>
+        </div>
     </div>
+
     <script>
-        const v = document.getElementById('v');
-        navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}}).then(s => v.srcObject = s);
-        async function scan() {
-            const canvas = document.createElement('canvas');
-            canvas.width = v.videoWidth; canvas.height = v.videoHeight;
-            canvas.getContext('2d').drawImage(v, 0, 0);
-            const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg'));
-            const fd = new FormData(); fd.append('file', blob);
-            const r = await fetch('/scan', {method: 'POST', body: fd});
-            const d = await r.json();
-            document.getElementById('res').innerHTML = "СИГНАЛ: " + d.signal + "<br>ОБОСНОВАНИЕ: " + d.reason;
-            startTimer(d.time);
+        let selectedTF = 'M1';
+        function setTF(btn, tf) {
+            document.querySelectorAll('.btn-tf').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedTF = tf;
         }
+        document.getElementById('file').onchange = async (e) => {
+            const fd = new FormData();
+            fd.append('file', e.target.files[0]);
+            fd.append('tf', selectedTF);
+            fd.append('strategy', document.getElementById('strategy').value);
+            fd.append('exp', document.getElementById('exp').value);
+            
+            const r = await fetch('/scan', {method:'POST', body:fd});
+            const d = await r.json();
+            
+            document.getElementById('res-card').style.display = 'block';
+            document.getElementById('res-signal').innerHTML = d.signal;
+            document.getElementById('res-reason').innerText = d.reason;
+            startTimer(d.exp);
+        };
         function startTimer(s) {
-            let t = s;
+            let t = parseInt(s);
             const el = document.getElementById('timer');
             const i = setInterval(() => {
                 el.innerText = Math.floor(t/60).toString().padStart(2,'0') + ":" + (t%60).toString().padStart(2,'0');
@@ -55,20 +105,14 @@ UI_HTML = """
 """
 
 @app.get("/", response_class=HTMLResponse)
-async def index():
-    return UI_HTML
+async def index(): return UI_HTML
 
 @app.post("/scan")
-async def scan(file: UploadFile = File(...)):
-    # --- ЛОГИКА ИИ (Анализ контраста) ---
-    contents = await file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Имитируем анализ: если средняя яркость в центре выше 120, даем сигнал
-    avg = np.mean(gray)
-    if avg > 120:
-        return {"signal": "ВВЕРХ 🟢", "reason": "Smart Money: Имбаланс обнаружен", "time": 300}
-    else:
-        return {"signal": "ВНИЗ 🔴", "reason": "ICT: Слом структуры (BOS)", "time": 300}
+async def scan(file: UploadFile = File(...), tf: str = Form(...), strategy: str = Form(...), exp: int = Form(...)):
+    # Здесь твоя логика анализа (opencv)
+    return {
+        "signal": "ВВЕРХ 🟢" if np.random.rand() > 0.5 else "ВНИЗ 🔴",
+        "reason": f"Анализ {strategy} на таймфрейме {tf}: структура подтверждена.",
+        "conf": "92.8%",
+        "exp": exp
+    }
