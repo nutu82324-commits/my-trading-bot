@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { background: #0a0a0a; color: white; text-align: center; font-family: sans-serif; }
+        video { width: 100%; border: 2px solid #5d3fd3; }
+        .btn { background: #5d3fd3; padding: 20px; width: 90%; border-radius: 15px; border: none; color: white; font-size: 20px; }
+        #timer { font-size: 40px; color: #ffeb3b; }
+    </style>
+</head>
+<body>
+    <video id="v" autoplay playsinline></video>
+    <button class="btn" onclick="run()">СКАНИРОВАТЬ</button>
+    <div id="res" style="font-size: 24px; margin: 10px;">Статус: Ожидание</div>
+    <div id="timer">00:00</div>
+
+    <script>
+        const v = document.getElementById('v');
+        navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}}).then(s => v.srcObject = s);
+
+        async function run() {
+            const canvas = document.createElement('canvas');
+            canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+            canvas.getContext('2d').drawImage(v, 0, 0);
+            const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg'));
+            const fd = new FormData(); fd.append('file', blob);
+            
+            const res = await fetch('/scan', {method: 'POST', body: fd});
+            const d = await res.json();
+            document.getElementById('res').innerText = "Сигнал: " + d.signal;
+            startTimer(d.time);
+        }
+
+        function startTimer(s) {
+            let t = s;
+            const el = document.getElementById('timer');
+            const i = setInterval(() => {
+                el.innerText = Math.floor(t/60) + ":" + (t%60).toString().padStart(2, '0');
+                if (--t < 0) clearInterval(i);
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
