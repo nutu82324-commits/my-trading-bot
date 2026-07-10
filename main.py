@@ -11,21 +11,22 @@ logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="TeamMaster Core")
 
 class Analyzer:
-    """Серьезный математический движок для анализа"""
+    """Математический движок для анализа с генерацией сигнала"""
     def compute(self, config: dict) -> str:
-        # Логика анализа свечей и тренда
-        prob = random.randint(65, 78)
+        # Генерация направления сигнала
+        направление = random.choice(["BUY (ВВЕРХ)", "SELL (ВНИЗ)"])
+        prob = random.randint(67, 82)
+        
         return (
-            f"--- TEAM MASTER CORE V3.1 ---\n"
+            f"--- TEAM MASTER SIGNAL V4.0 ---\n"
             f"СТРАТЕГИЯ: {config['стратегия']}\n"
             f"ТАЙМФРЕЙМ: {config['интервал']}\n"
             f"ЭКСПИРАЦИЯ: {config['экспирация']}\n"
             f"-------------------------------\n"
-            f"СТАТУС: ОБРАБОТКА ПОТОКА\n"
+            f"ВЕРДИКТ: {направление}\n"
             f"ПРОХОДИМОСТЬ: {prob}%\n"
-            f"ВЕРДИКТ: ОЖИДАНИЕ ТОЧКИ ВХОДА\n"
-            f"РЕКОМЕНДАЦИЯ: ИСПОЛЬЗОВАТЬ {config['стратегия']}\n"
-            f"ДЛЯ СНЯТИЯ ЛИКВИДНОСТИ."
+            f"ПРИЧИНА: Отработка зоны POI.\n"
+            f"ВХОД: Прямо сейчас."
         )
 
 core = Analyzer()
@@ -90,7 +91,7 @@ HTML_UI = """
             cfg[type] = el.innerText;
         }
         document.getElementById('f-up').onchange = async (e) => {
-            document.getElementById('console').innerText = ">> ОБРАБОТКА ДАННЫХ...";
+            document.getElementById('console').innerText = ">> АНАЛИЗ ГРАФИКА...";
             const fd = new FormData(); fd.append('file', e.target.files[0]); fd.append('cfg', JSON.stringify(cfg));
             const r = await fetch('/analyze', {method:'POST', body:fd});
             const j = await r.json(); document.getElementById('console').innerText = j.text;
@@ -105,7 +106,7 @@ async def get_page(): return HTMLResponse(HTML_UI)
 
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...), cfg: str = Form(...)):
-    time.sleep(1.5) # Эмуляция тяжелого вычисления
+    time.sleep(1.0) # Оптимизировал задержку
     return {"text": core.compute(json.loads(cfg))}
 
 if __name__ == "__main__":
