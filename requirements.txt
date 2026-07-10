@@ -2,5 +2,5 @@ fastapi
 uvicorn
 opencv-python-headless
 numpy
+pandas
 python-multipart
-jinja2
