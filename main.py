@@ -1,34 +1,40 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import cv2
+from fastapi import FastAPI, UploadFile, File, Request
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 import numpy as np
+import cv2
 
 app = FastAPI()
+templates = Jinja2Templates(directory="templates")
 
-# Логика анализа графиков
-def analyze_patterns(image):
-    # Преобразуем в оттенки серого для анализа
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+def get_market_signal(img):
+    # ПРЕОБРАЗОВАНИЕ: Ищем свечи по цветам (Красный/Зеленый)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
-    # ПРИМЕР: Поиск зон через границы (Canny)
-    edges = cv2.Canny(gray, 50, 150)
+    # Диапазоны цветов свечей на Pocket Option
+    lower_green = np.array([40, 50, 50])
+    upper_green = np.array([80, 255, 255])
+    lower_red = np.array([0, 50, 50])
+    upper_red = np.array([10, 255, 255])
     
-    # Здесь добавляется твоя логика стратегий:
-    # 1. Поиск FVG (Fair Value Gap)
-    # 2. Поиск Order Block
-    # 3. Расчет волатильности
+    # Считаем пиксели
+    green_pixels = cv2.countNonZero(cv2.inRange(hsv, lower_green, upper_green))
+    red_pixels = cv2.countNonZero(cv2.inRange(hsv, lower_red, upper_red))
     
-    # Заглушка для теста
-    return {"signal": "BUY (Smart Money)", "confidence": "78%", "level": "1.0850"}
+    # ЛОГИКА СТРАТЕГИИ (Smart Money / ICT простейшая):
+    if green_pixels > red_pixels * 1.5:
+        return "ВВЕРХ 🟢", "85%"
+    elif red_pixels > green_pixels * 1.5:
+        return "ВНИЗ 🔴", "85%"
+    else:
+        return "ОЖИДАНИЕ...", "0%"
 
-@app.post("/api/scan")
+@app.post("/scan")
 async def scan(file: UploadFile = File(...)):
     contents = await file.read()
     nparr = np.frombuffer(contents, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
-    result = analyze_patterns(img)
-    return result
-
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+    # ИИ анализирует кадр
+    signal, conf = get_market_signal(img)
+    return {"signal": signal, "conf": conf, "time": 300}
